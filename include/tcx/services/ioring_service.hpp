@@ -92,7 +92,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
-    //
+    // preadv2(2)
     template <tcx::ioring_completion_handler F>
     auto async_readv(int entry_flags, int fd, iovec const* iov, std::size_t len, off_t offset, int flags, F&& f)
     {
@@ -107,6 +107,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // pwritev2(2)
     template <tcx::ioring_completion_handler F>
     auto async_writev(int entry_flags, int fd, iovec const* iov, std::size_t len, off_t offset, int flags, F&& f)
     {
@@ -121,6 +122,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // fsync(2)
     template <tcx::ioring_completion_handler F>
     auto async_fsync(int entry_flags, int fd, F&& f)
     {
@@ -131,6 +133,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // epoll_wait(2)
     template <tcx::ioring_completion_handler F>
     auto async_poll_add(int entry_flags, int fd, std::uint32_t events, F&& f)
     {
@@ -152,6 +155,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // epoll_wait(2)
     template <tcx::ioring_completion_handler F>
     auto async_poll_remove(int entry_flags, int fd, F&& f)
     {
@@ -162,6 +166,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // epoll_ctl(2)
     template <tcx::ioring_completion_handler F>
     auto async_epoll_ctl(int entry_flags, int epoll_fd, int op, int fd, epoll_event* event, F&& f)
     {
@@ -175,6 +180,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // sync_file_range(2)
     template <tcx::ioring_completion_handler F>
     auto async_sync_file_range(int entry_flags, int fd, off64_t offset, off64_t nbytes, unsigned flags, F&& f)
     {
@@ -188,6 +194,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // sendmsg(2)
     template <tcx::ioring_completion_handler F>
     auto async_sendmsg(int entry_flags, int fd, msghdr const* msg, int flags, F&& f)
     {
@@ -200,6 +207,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // recvmsg(2)
     template <tcx::ioring_completion_handler F>
     auto async_recvmsg(int entry_flags, int fd, msghdr* msg, int flags, F&& f)
     {
@@ -212,6 +220,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // send(2)
     template <tcx::ioring_completion_handler F>
     auto async_send(int entry_flags, int fd, void const* buf, std::size_t len, int flags, F&& f)
     {
@@ -225,6 +234,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // recv(2)
     template <tcx::ioring_completion_handler F>
     auto async_recv(int entry_flags, int fd, void* buf, std::size_t len, int flags, F&& f)
     {
@@ -239,7 +249,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_timeout(int entry_flags, timespec64* timeout, bool absolute, F&& f)
+    auto async_timeout(int entry_flags, timespec64 const* timeout, bool absolute, F&& f)
     {
         io_uring_sqe op {};
         op.opcode = IORING_OP_TIMEOUT;
@@ -298,7 +308,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_link_timeout(int entry_flags, std::uint64_t operation_id, timespec64* timeout, bool absolute, F&& f)
+    auto async_link_timeout(int entry_flags, timespec64 const* timeout, bool absolute, F&& f)
     {
         io_uring_sqe op {};
         op.opcode = IORING_OP_LINK_TIMEOUT;
@@ -440,14 +450,28 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_splice(int entry_flags, int fd, void const* buf, std::size_t len, F&& f)
+    auto async_splice(int entry_flags, int fd_in, off64_t const* off_in, int fd_out, off64_t const* off_out, std::size_t len, unsigned flags, F&& f)
     {
         io_uring_sqe op {};
-        op.opcode = IORING_OP_WRITE;
-        op.flags = entry_flags;
-        op.fd = fd;
-        op.addr = reinterpret_cast<std::uintptr_t>(buf);
+        op.opcode = IORING_OP_SPLICE;
+        op.splice_fd_in = fd_in;
+        op.splice_off_in = off_in ? *off_in : -1;
+        op.fd = fd_out;
+        op.off = off_out ? *off_out : -1;
         op.len = len;
+        op.splice_flags = flags;
+        return submit(op, std::forward<F>(f));
+    }
+
+    template <tcx::ioring_completion_handler F>
+    auto async_tee(int entry_flags, int fd_in, int fd_out, std::size_t len, unsigned flags, F&& f)
+    {
+        io_uring_sqe op {};
+        op.opcode = IORING_OP_SPLICE;
+        op.splice_fd_in = fd_in;
+        op.fd = fd_out;
+        op.len = len;
+        op.splice_flags = flags;
         return submit(op, std::forward<F>(f));
     }
 
@@ -486,6 +510,7 @@ public:
         op.opcode = IORING_OP_SHUTDOWN;
         op.flags = entry_flags;
         op.fd = fd;
+        (void)how;
         return submit(op, std::forward<F>(f));
     }
 
