@@ -72,7 +72,7 @@ public:
     template <typename T>
     bool has_service() const noexcept
     {
-        return m_services.find(typeid(T)) == m_services.end();
+        return m_services.find(typeid(T)) != m_services.end();
     }
 
     template <typename T>
