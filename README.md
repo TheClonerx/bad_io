@@ -13,19 +13,19 @@ I wrote `tcx::function_view` thinking it would be useful for this project. Curre
 `tcx::unsynchronized_execution_context` is essentially just a function queue, as it's name implies, it's not thread safe.
 
 # TODO
-- Implement arguments for `tcx::function_view`
-- Implement SOO for `tcx::unique_functiom`
-- Implement allocator aware move operations for `tcx::unique_function`
-- Make the executor fully allocator aware
-- Learn about how overlapping IO works on Windows
+- [ ] Implement arguments for `tcx::function_view`
+- [X] Implement SBO for `tcx::unique_functiom`
+- [ ] Implement allocator aware move operations for `tcx::unique_function`
+- [ ] Make the executor fully allocator aware
+- [ ] Learn about how overlapping IO works on Windows
 - Implement following IO services:
-    - `tcx::epoll_service`
-    - `tcx::poll_service`
-    - `tcx::overlapped_service`
-    - and maybe `tcx::kqueue_service`
-- Implement `tcx::thread_service`
-- Implement `tcx::synchronized_execution_context`
-- How to run any coroutine inside the executors.
+    - [ ] `tcx::epoll_service`
+    - [ ] `tcx::poll_service`
+    - [ ] `tcx::overlapped_service`
+    - [ ] and maybe `tcx::kqueue_service`
+- [ ] Implement `tcx::thread_service`
+- [ ] Implement `tcx::synchronized_execution_context`
+- [ ] How to run any coroutine inside the executors.
     (I really dont want to create a coroutine future just to use in the executors like `asio::awaitable`)
 
 
