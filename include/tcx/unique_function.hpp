@@ -5,8 +5,6 @@
 #include <type_traits>
 #include <utility>
 
-#include <tcx/is_function_pointer.hpp>
-
 namespace tcx {
 template <typename F, typename Allocator = std::allocator<std::byte>>
 class unique_function;
