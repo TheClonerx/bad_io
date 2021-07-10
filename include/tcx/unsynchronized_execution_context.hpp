@@ -20,12 +20,12 @@ public:
     using allocator_type = typename std::allocator_traits<Allocator>::template rebind_alloc<std::byte>;
 
     unsynchronized_execution_context() noexcept
-        : m_alloc { std::pmr::get_default_resource() }
+        : m_alloc {}
     {
     }
 
     unsynchronized_execution_context(allocator_type const &alloc) noexcept
-        : m_alloc {}
+        : m_alloc { alloc }
     {
     }
 
