@@ -14,9 +14,10 @@
 
 namespace tcx {
 
+template <typename Allocator = std::pmr::polymorphic_allocator<std::byte>>
 class unsynchronized_execution_context {
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<std::byte>;
+    using allocator_type = typename std::allocator_traits<Allocator>::template rebind_alloc<std::byte>;
 
     unsynchronized_execution_context() noexcept
         : m_alloc { std::pmr::get_default_resource() }
@@ -60,7 +61,7 @@ public:
     }
 
     template <typename T>
-    T &use_service() requires(std::is_constructible_v<T, tcx::unsynchronized_execution_context &>)
+    T &use_service() requires(std::is_constructible_v<T, unsynchronized_execution_context &>)
     {
         if (auto it = m_services.find(typeid(T)); it == m_services.end()) {
             return make_service<T>();
@@ -80,7 +81,7 @@ public:
     {
         if (has_service<T>())
             throw std::runtime_error("service already provided");
-        auto *ptr = m_alloc.new_object<T>(*this);
+        auto *ptr = m_alloc.template new_object<T>(*this);
         auto dest = +[](allocator_type &alloc, void *ptr) {
             auto *service = reinterpret_cast<T *>(ptr);
             alloc.delete_object(service);
