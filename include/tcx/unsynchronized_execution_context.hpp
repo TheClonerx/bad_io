@@ -44,6 +44,11 @@ public:
         return *this;
     }
 
+    allocator_type get_allocator() const
+    {
+        return m_alloc;
+    }
+
     template <typename F>
     void post(F &&functor)
     {
