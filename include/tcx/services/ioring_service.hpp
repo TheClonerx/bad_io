@@ -680,9 +680,10 @@ private:
                 }
                 m_service->m_working--;
             }
-            m_service->m_completions.erase(m_service->m_completions.begin(), std::remove_if(m_service->m_completions.begin(), m_service->m_completions.end(), [](auto const& completion) {
+            m_service->m_completions.erase(std::remove_if(m_service->m_completions.begin(), m_service->m_completions.end(), [](auto const& completion) {
                 return completion.first == 0 || !static_cast<bool>(completion.second);
-            }));
+            }),
+                m_service->m_completions.end());
             if (m_service->m_working)
                 requeue();
         }
