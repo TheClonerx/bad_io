@@ -39,7 +39,6 @@ public:
             size_t space = sizeof(m_storage);
             p = std::align(alignof(F), sizeof(F), p, space);
             if (p) { // we can store the object inline at p
-                std::fprintf(stderr, "Using inline storage align=%zu size=%zu\n", alignof(F), sizeof(F));
                 std::construct_at(reinterpret_cast<std::remove_cvref_t<F>*>(p), std::forward<F>(f));
                 func_dest_t dest = +[](unique_function* self) -> void {
                     auto p = reinterpret_cast<std::remove_cvref_t<F>*>(self->m_vptr);
