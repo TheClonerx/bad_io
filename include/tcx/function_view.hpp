@@ -13,7 +13,7 @@ struct function_reference<R()> {
     using result_type = R;
 
 private:
-    using function_pointer_type = result_type (*)(void*);
+    using function_pointer_type = result_type (*)(void *);
 
 public:
     constexpr function_reference() noexcept = default;
@@ -24,10 +24,10 @@ public:
 
     template <typename U>
     function_reference(U (*function_pointer)()) noexcept requires std::is_convertible_v<U, R>
-        : m_data { reinterpret_cast<void*>(function_pointer) },
+        : m_data { reinterpret_cast<void *>(function_pointer) },
           m_func {
-              +[](void* data) -> R {
-                  auto* function_pointer = reinterpret_cast<R (*)()>(data);
+              +[](void *data) -> R {
+                  auto *function_pointer = reinterpret_cast<R (*)()>(data);
                   return function_pointer();
               }
           }
@@ -35,10 +35,10 @@ public:
     }
 
     template <typename F>
-    function_reference(F& f) noexcept requires std::is_invocable_r_v<R, F>
-        : m_data { reinterpret_cast<void*>(&f) },
-          m_func { +[](void* data) -> R {
-              auto& function_object = *reinterpret_cast<F*>(data);
+    function_reference(F &f) noexcept requires std::is_invocable_r_v<R, F>
+        : m_data { reinterpret_cast<void *>(&f) },
+          m_func { +[](void *data) -> R {
+              auto &function_object = *reinterpret_cast<F *>(data);
               return function_object();
           } }
     {
@@ -57,7 +57,7 @@ public:
     }
 
 private:
-    void* m_data = nullptr;
+    void *m_data = nullptr;
     function_pointer_type m_func = nullptr;
 };
 
@@ -67,7 +67,7 @@ public:
     using result_type = R;
 
 private:
-    using function_pointer_type = result_type (*)(void*);
+    using function_pointer_type = result_type (*)(void *);
 
 public:
     constexpr function_reference() noexcept = default;
@@ -78,10 +78,10 @@ public:
 
     template <typename U>
     function_reference(U (*function_pointer)()) noexcept requires std::is_convertible_v<U, R>
-        : m_data { reinterpret_cast<void*>(function_pointer) },
+        : m_data { reinterpret_cast<void *>(function_pointer) },
           m_func {
-              +[](void* data) -> R {
-                  auto* function_pointer = reinterpret_cast<R (*)()>(data);
+              +[](void *data) -> R {
+                  auto *function_pointer = reinterpret_cast<R (*)()>(data);
                   return function_pointer();
               }
           }
@@ -89,11 +89,11 @@ public:
     }
 
     template <typename F>
-    function_reference(F& f) noexcept requires std::is_invocable_r_v<R, F>
-        : m_data { reinterpret_cast<void*>(&f) },
+    function_reference(F &f) noexcept requires std::is_invocable_r_v<R, F>
+        : m_data { reinterpret_cast<void *>(&f) },
           m_func {
-              +[](void* data) -> R {
-                  auto& function_object = *reinterpret_cast<F*>(data);
+              +[](void *data) -> R {
+                  auto &function_object = *reinterpret_cast<F *>(data);
                   return function_object();
               }
           }
@@ -113,7 +113,7 @@ public:
     }
 
 private:
-    void* m_data = nullptr;
+    void *m_data = nullptr;
     function_pointer_type m_func = nullptr;
 };
 

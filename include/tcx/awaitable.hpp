@@ -23,7 +23,7 @@ public:
     using result_type = std::remove_cv_t<T>;
 
 protected:
-    using stored_type = std::conditional_t<std::is_void_v<result_type>, std::monostate, std::conditional_t<std::is_reference_v<result_type>, result_type*, result_type>>;
+    using stored_type = std::conditional_t<std::is_void_v<result_type>, std::monostate, std::conditional_t<std::is_reference_v<result_type>, result_type *, result_type>>;
 
     /*
         first state (0): no_state, promise is not fullfilled
@@ -37,7 +37,7 @@ public:
     auto get_return_object() noexcept
     {
         return awaitable<result_type> {
-            std::coroutine_handle<awaitable_promise<result_type>>::from_promise(static_cast<awaitable_promise<result_type>&>(*this))
+            std::coroutine_handle<awaitable_promise<result_type>>::from_promise(static_cast<awaitable_promise<result_type> &>(*this))
         };
     }
 
@@ -142,14 +142,14 @@ public:
 public:
     constexpr awaitable() noexcept = default;
 
-    awaitable(awaitable<Result> const&) = delete;
-    constexpr awaitable(awaitable<Result>&& other) noexcept
+    awaitable(awaitable<Result> const &) = delete;
+    constexpr awaitable(awaitable<Result> &&other) noexcept
         : m_handle { std::exchange(other.m_handle, nullptr) }
     {
     }
 
-    awaitable<Result>& operator=(awaitable<Result> const&) = delete;
-    constexpr awaitable<Result>& operator=(awaitable<Result>&& other) noexcept
+    awaitable<Result> &operator=(awaitable<Result> const &) = delete;
+    constexpr awaitable<Result> &operator=(awaitable<Result> &&other) noexcept
     {
         m_handle = std::exchange(other.m_handle, nullptr);
         return *this;
@@ -187,7 +187,7 @@ public:
     }
 
     template <typename E>
-    void post_into(E& executor) && noexcept
+    void post_into(E &executor) &&noexcept
     {
         executor.post(std::exchange(m_handle, nullptr));
     }

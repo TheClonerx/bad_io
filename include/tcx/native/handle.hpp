@@ -5,8 +5,8 @@
 
 namespace tcx {
 #ifdef _WIN32
-using native_handle_type = void*;
-inline static native_handle_type invalid_handle = reinterpret_cast<void*>(~static_cast<std::uintptr_t>(0));
+using native_handle_type = void *;
+inline static native_handle_type invalid_handle = reinterpret_cast<void *>(~static_cast<std::uintptr_t>(0));
 #else
 using native_handle_type = int;
 inline static native_handle_type invalid_handle = -1;

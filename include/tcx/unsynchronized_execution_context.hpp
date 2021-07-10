@@ -23,16 +23,16 @@ public:
     {
     }
 
-    unsynchronized_execution_context(allocator_type const& alloc) noexcept
+    unsynchronized_execution_context(allocator_type const &alloc) noexcept
         : m_alloc {}
     {
     }
 
-    unsynchronized_execution_context(unsynchronized_execution_context const&) = delete;
-    unsynchronized_execution_context(unsynchronized_execution_context&&) noexcept = default;
+    unsynchronized_execution_context(unsynchronized_execution_context const &) = delete;
+    unsynchronized_execution_context(unsynchronized_execution_context &&) noexcept = default;
 
-    unsynchronized_execution_context& operator=(unsynchronized_execution_context const&) = delete;
-    unsynchronized_execution_context& operator=(unsynchronized_execution_context&& other) noexcept
+    unsynchronized_execution_context &operator=(unsynchronized_execution_context const &) = delete;
+    unsynchronized_execution_context &operator=(unsynchronized_execution_context &&other) noexcept
     {
         if (this != &other) {
             std::destroy_at(&m_alloc);
@@ -44,7 +44,7 @@ public:
     }
 
     template <typename F>
-    void post(F&& functor)
+    void post(F &&functor)
     {
         m_function_queue.emplace(std::forward<F>(functor));
     }
@@ -60,12 +60,12 @@ public:
     }
 
     template <typename T>
-    T& use_service() requires(std::is_constructible_v<T, tcx::unsynchronized_execution_context&>)
+    T &use_service() requires(std::is_constructible_v<T, tcx::unsynchronized_execution_context &>)
     {
         if (auto it = m_services.find(typeid(T)); it == m_services.end()) {
             return make_service<T>();
         } else {
-            return *reinterpret_cast<T*>(it->second.ptr);
+            return *reinterpret_cast<T *>(it->second.ptr);
         }
     }
 
@@ -76,22 +76,22 @@ public:
     }
 
     template <typename T>
-    T& make_service()
+    T &make_service()
     {
         if (has_service<T>())
             throw std::runtime_error("service already provided");
-        auto* ptr = m_alloc.new_object<T>(*this);
-        auto dest = +[](allocator_type& alloc, void* ptr) {
-            auto* service = reinterpret_cast<T*>(ptr);
+        auto *ptr = m_alloc.new_object<T>(*this);
+        auto dest = +[](allocator_type &alloc, void *ptr) {
+            auto *service = reinterpret_cast<T *>(ptr);
             alloc.delete_object(service);
         };
-        m_services.emplace(typeid(T), service_data { static_cast<void*>(ptr), dest });
+        m_services.emplace(typeid(T), service_data { static_cast<void *>(ptr), dest });
         return *ptr;
     }
 
     ~unsynchronized_execution_context()
     {
-        for (auto& [k, service] : m_services) {
+        for (auto &[k, service] : m_services) {
             service.dest(m_alloc, service.ptr);
             service.ptr = nullptr;
             service.dest = nullptr;
@@ -103,8 +103,8 @@ private:
     using function_storage = tcx::unique_function<void()>;
     std::queue<function_storage> m_function_queue;
     struct service_data {
-        void* ptr;
-        void (*dest)(allocator_type& alloc, void*);
+        void *ptr;
+        void (*dest)(allocator_type &alloc, void *);
     };
     std::unordered_map<std::type_index, service_data> m_services;
 };

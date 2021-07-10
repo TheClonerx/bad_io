@@ -16,7 +16,7 @@
 namespace tcx {
 
 template <typename E, typename F>
-void async_write(E& executor, tcx::native_handle_type fd, void const* buf, std::size_t len, F&& f) requires(std::is_invocable_v<F, std::error_code, std::size_t>)
+void async_write(E &executor, tcx::native_handle_type fd, void const *buf, std::size_t len, F &&f) requires(std::is_invocable_v<F, std::error_code, std::size_t>)
 {
 #ifdef __linux__
     executor.template use_service<tcx::ioring_service>().async_write(0, fd, buf, len, [f = std::forward<F>(f)](std::int32_t result) {
@@ -31,7 +31,7 @@ void async_write(E& executor, tcx::native_handle_type fd, void const* buf, std::
 }
 
 template <typename E>
-auto async_write(E& executor, int fd, void* buf, std::size_t len, use_awaitable_t) noexcept
+auto async_write(E &executor, int fd, void *buf, std::size_t len, use_awaitable_t) noexcept
 {
     struct awaiter {
         constexpr bool await_ready() const noexcept
@@ -56,9 +56,9 @@ auto async_write(E& executor, int fd, void* buf, std::size_t len, use_awaitable_
             return result;
         }
 
-        E& executor;
+        E &executor;
         int fd;
-        void* buf;
+        void *buf;
         std::size_t len;
 
         std::coroutine_handle<> handle;

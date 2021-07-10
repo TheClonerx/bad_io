@@ -28,7 +28,7 @@ enum open_mode {
 };
 
 template <typename E, typename F>
-void async_open(E& executor, std::basic_string_view<tcx::native_path_char_type> path, std::underlying_type_t<tcx::open_mode> mode, F&& f) requires(std::is_invocable_v<F, std::error_code, tcx::native_handle_type>)
+void async_open(E &executor, std::basic_string_view<tcx::native_path_char_type> path, std::underlying_type_t<tcx::open_mode> mode, F &&f) requires(std::is_invocable_v<F, std::error_code, tcx::native_handle_type>)
 {
 #ifdef __linux__
     bool const has_read = mode & open_mode::read;
@@ -52,7 +52,7 @@ void async_open(E& executor, std::basic_string_view<tcx::native_path_char_type> 
 }
 
 template <typename E>
-auto async_open(E& executor, std::basic_string_view<tcx::native_path_char_type> path, std::underlying_type_t<tcx::open_mode> mode, tcx::use_awaitable_t)
+auto async_open(E &executor, std::basic_string_view<tcx::native_path_char_type> path, std::underlying_type_t<tcx::open_mode> mode, tcx::use_awaitable_t)
 {
     struct awaiter {
         constexpr bool await_ready() const noexcept { return false; }
@@ -73,7 +73,7 @@ auto async_open(E& executor, std::basic_string_view<tcx::native_path_char_type> 
                 throw std::system_error(e);
             return fd;
         }
-        E& executor;
+        E &executor;
         std::basic_string_view<tcx::native_path_char_type> path;
         std::underlying_type_t<open_mode> mode;
 
