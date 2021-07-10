@@ -42,9 +42,13 @@ public:
 
             func_dest_t dest = +[](unique_function* self) -> void {
                 rebound_allocator_t rebound_allocator = self->m_alloc;
-                auto p = static_cast<typename std::allocator_traits<rebound_allocator_t>::pointer>(self->m_data);
+                auto p = static_cast<typename std::allocator_traits<rebound_allocator_t>::pointer>(std::move(self->m_data));
                 std::allocator_traits<rebound_allocator_t>::destroy(rebound_allocator, p);
                 std::allocator_traits<rebound_allocator_t>::deallocate(rebound_allocator, p, 1);
+
+                // change the active member of the union
+                std::destroy_at(std::addressof(self->m_data));
+                self->m_vptr = nullptr;
             };
 
             func_impl_t impl = +[](unique_function* self, Args&&... args) -> result_type {
