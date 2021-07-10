@@ -18,47 +18,73 @@ public:
 private:
     using func_impl_t = result_type (*)(unique_function* self, Args&&...);
     using func_dest_t = void (*)(unique_function* self);
+    using func_move_t = void (*)(unique_function* self, unique_function* other);
     using void_pointer = typename std::allocator_traits<allocator_type>::void_pointer;
 
 public:
     unique_function() noexcept = default;
 
     template <typename F>
-    unique_function(std::allocator_arg_t, allocator_type const& alloc, F&& f) noexcept(std::is_constructible_v<F, result_type (*)(Args...)>) requires(std::is_constructible_v<F, result_type (*)(Args...)> || (std::is_invocable_r_v<R, F, Args...> && std::is_constructible_v<std::remove_cvref_t<F>, F>))
+    unique_function(std::allocator_arg_t, allocator_type const& alloc, F&& f) noexcept(std::is_constructible_v<F, result_type (*)(Args...)>) requires(std::is_constructible_v<F, result_type (*)(Args...)> || (std::is_invocable_r_v<R, F, Args...> && std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>))
         : m_alloc(alloc)
     {
-        if constexpr (std::is_constructible_v<F, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
+        if constexpr (std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
             m_vptr = reinterpret_cast<void*>(static_cast<result_type (*)(Args...)>(f));
             m_impl = +[](unique_function* self, Args&&... args) -> result_type {
                 auto f = reinterpret_cast<std::decay_t<F>>(self->m_vptr);
                 return f(std::forward<Args>(args)...);
             };
         } else {
-            using rebound_allocator_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<std::remove_cvref_t<F>>;
+            void* p = m_storage;
+            size_t space = sizeof(m_storage);
+            p = std::align(alignof(F), sizeof(F), p, space);
+            if (p) { // we can store the object inline at p
+                std::fprintf(stderr, "Using inline storage align=%zu size=%zu\n", alignof(F), sizeof(F));
+                std::construct_at(reinterpret_cast<std::remove_cvref_t<F>*>(p), std::forward<F>(f));
+                func_dest_t dest = +[](unique_function* self) -> void {
+                    auto p = reinterpret_cast<std::remove_cvref_t<F>*>(self->m_vptr);
+                    std::destroy_at(p);
+                    self->m_vptr = nullptr;
+                };
+                func_impl_t impl = +[](unique_function* self, Args&&... args) -> result_type {
+                    auto* f = reinterpret_cast<std::remove_cvref_t<F>*>(self->m_vptr);
+                    return (*f)(std::forward<Args>(args)...);
+                };
+                func_move_t mov = +[](unique_function* lhs, unique_function* rhs) {
+                    // TODO
+                };
+                m_dest = dest;
+                m_impl = impl;
+                m_vptr = p;
 
-            rebound_allocator_t rebound_allocator = m_alloc;
-            auto data = std::allocator_traits<rebound_allocator_t>::allocate(rebound_allocator, 1);
-            std::allocator_traits<rebound_allocator_t>::construct(rebound_allocator, data, std::forward<F>(f));
+            } else {
+                using rebound_allocator_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<std::remove_cvref_t<F>>;
 
-            func_dest_t dest = +[](unique_function* self) -> void {
-                rebound_allocator_t rebound_allocator = self->m_alloc;
-                auto p = static_cast<typename std::allocator_traits<rebound_allocator_t>::pointer>(std::move(self->m_data));
-                std::allocator_traits<rebound_allocator_t>::destroy(rebound_allocator, p);
-                std::allocator_traits<rebound_allocator_t>::deallocate(rebound_allocator, p, 1);
+                rebound_allocator_t rebound_allocator = m_alloc;
+                auto data = std::allocator_traits<rebound_allocator_t>::allocate(rebound_allocator, 1);
+                std::allocator_traits<rebound_allocator_t>::construct(rebound_allocator, data, std::forward<F>(f));
 
-                // change the active member of the union
-                std::destroy_at(std::addressof(self->m_data));
-                self->m_vptr = nullptr;
-            };
+                func_dest_t dest = +[](unique_function* self) -> void {
+                    rebound_allocator_t rebound_allocator = self->m_alloc;
+                    auto p = static_cast<typename std::allocator_traits<rebound_allocator_t>::pointer>(std::move(self->m_data));
+                    std::allocator_traits<rebound_allocator_t>::destroy(rebound_allocator, p);
+                    std::allocator_traits<rebound_allocator_t>::deallocate(rebound_allocator, p, 1);
 
-            func_impl_t impl = +[](unique_function* self, Args&&... args) -> result_type {
-                auto* f = reinterpret_cast<std::remove_cvref_t<F>*>(std::to_address(self->m_data));
-                return (*f)(std::forward<Args>(args)...);
-            };
-
-            m_dest = dest;
-            m_impl = impl;
-            m_data = data;
+                    // change the active member of the union
+                    std::destroy_at(std::addressof(self->m_data));
+                    self->m_vptr = nullptr;
+                };
+                func_impl_t impl = +[](unique_function* self, Args&&... args) -> result_type {
+                    auto* f = reinterpret_cast<std::remove_cvref_t<F>*>(std::to_address(self->m_data));
+                    return (*f)(std::forward<Args>(args)...);
+                };
+                func_move_t mov = +[](unique_function* lhs, unique_function* rhs) {
+                    // TODO
+                };
+                m_dest = dest;
+                m_impl = impl;
+                m_data = data;
+            }
         }
     }
 
@@ -110,16 +136,20 @@ public:
             swap(first.m_data, second.m_data);
         } else if (first.m_dest) {
             auto tmp = std::move(first.m_data);
+            std::destroy_at(std::addressof(first.m_data));
             first.m_vptr = second.m_vptr;
-            second.m_data = std::move(tmp);
+            std::construct_at(std::addressof(second.m_data), std::move(tmp));
         } else {
             auto tmp = std::move(second.m_data);
-            second.m_vptr = second.m_vptr;
-            first.m_data = std::move(tmp);
+            std::destroy_at(std::addressof(second.m_data));
+            second.m_vptr = first.m_vptr;
+            std::construct_at(std::addressof(first.m_data), std::move(tmp));
         }
         swap(first.m_alloc, second.m_alloc);
         swap(first.m_impl, second.m_impl);
         swap(first.m_dest, second.m_dest);
+        swap(first.m_move, second.m_move);
+        swap(first.m_storage, second.m_storage);
     }
 
     ~unique_function()
@@ -129,16 +159,29 @@ public:
         m_data = nullptr;
         m_dest = nullptr;
         m_impl = nullptr;
+        m_move = nullptr;
     }
 
 private:
     [[no_unique_address]] allocator_type m_alloc;
     func_impl_t m_impl = nullptr;
     func_dest_t m_dest = nullptr;
+    func_move_t m_move = nullptr; // supposed to store the move operation
     union {
         void_pointer m_data;
         void* m_vptr = nullptr;
     };
+    struct _state {
+        [[no_unique_address]] allocator_type m_alloc;
+        func_impl_t m_impl = nullptr;
+        func_dest_t m_dest = nullptr;
+        func_move_t m_move = nullptr;
+        union {
+            void_pointer m_data;
+            void* m_vptr = nullptr;
+        };
+    };
+    char m_storage[64 - sizeof(_state)];
 };
 
 }
