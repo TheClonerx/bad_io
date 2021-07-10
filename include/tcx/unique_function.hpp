@@ -25,7 +25,7 @@ public:
     unique_function() noexcept = default;
 
     template <typename F>
-    unique_function(std::allocator_arg_t, allocator_type const& alloc, F&& f) noexcept(std::is_constructible_v<F, result_type (*)(Args...)>) requires(std::is_constructible_v<F, result_type (*)(Args...)> || (std::is_invocable_r_v<R, F, Args...> && std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>))
+    unique_function(std::allocator_arg_t, allocator_type const& alloc, F&& f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) requires(std::is_invocable_r_v<R, F, Args...>)
         : m_alloc(alloc)
     {
         if constexpr (std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
