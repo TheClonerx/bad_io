@@ -1,4 +1,5 @@
 #include <array>
+#include <unistd.h>
 
 #include <tcx/async/open.hpp>
 #include <tcx/async/read.hpp>
