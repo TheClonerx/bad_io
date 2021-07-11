@@ -4,7 +4,7 @@
 This is an attempt to creating an async, event based, IO.
 Highly inspired in asio.
 
-Currently I'm quite happy how `tcx::ioring_service` ended up being, however its not perfect, it's not thread safe and it uses some type erasure that I would rather not use.
+Currently I'm quite happy how `tcx::ioring_service` ended up being, however its not perfect; and it's not thread safe.
 
 I wrote `tcx::function_view` thinking it would be useful for this project. Currently it's not, but I'm not going to let my efford go to waste.
 
@@ -43,11 +43,22 @@ Creates the io_uring's file descriptor and maps the rings using a default number
 #### `ioring_service(E &context, std::uint32_t entries)` (constructor)
 Creates the io_uring's file descriptor and maps the rings. Up to `entries` can be submitted at the same time.
 
+#### `ioring_service(ioring_service const&) = delete` (constructor)
+#### `ioring_service(ioring_service &&) noexcept` (constructor)
+Moves the ioring_service.
+
 #### `~ioring_service()` (destructor)
 Closes the io_uring's file descriptor.
 
+#### `ioring_service &operator=(ioring_service const&) = delete`
+#### `ioring_service &operator=(ioring_service &&) noexcept`
+Moves the ioring_service.
+
 #### `native_handle_type native_handle() noexcept`
 Returns the native handle to the io_uring instance.
+
+#### `void poll(E &executor, bool should_block)`
+Submits the operations to the io_uring instance, then it optionally waits for the completion of an operation if `should_block` is true, and finnally it posts the completions (if any) to `executor`.
 
 #
 For the next `async_` functions, the following always hold true:
