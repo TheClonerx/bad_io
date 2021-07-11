@@ -44,6 +44,46 @@ public:
     {
     }
 
+    ioring_service(ioring_service &&other) noexcept
+        : m_handle { std::exchange(other.m_handle, invalid_handle) }
+        , m_ring_features { std::exchange(other.m_ring_features, 0) }
+        , m_to_submit { std::exchange(other.m_to_submit, 0) }
+        , m_sring_tail { std::exchange(other.m_sring_tail, nullptr) }
+        , m_sring_mask { std::exchange(other.m_sring_mask, nullptr) }
+        , m_sring_array { std::exchange(other.m_sring_array, nullptr) }
+        , m_sqes { std::exchange(other.m_sqes, nullptr) }
+        , m_cring_tail { std::exchange(other.m_cring_tail, nullptr) }
+        , m_cring_head { std::exchange(other.m_cring_head, nullptr) }
+        , m_cring_mask { std::exchange(other.m_cring_mask, nullptr) }
+        , m_cqes { std::exchange(other.m_cqes, nullptr) }
+        , m_last_id { std::exchange(other.m_last_id, 0) }
+        , m_completions(std::move(other.m_completions))
+
+    {
+    }
+
+    ioring_service &operator=(ioring_service &&other) noexcept
+    {
+        if (this == &other)
+            return *this;
+        if (m_handle != invalid_handle)
+            ::close(m_handle);
+        m_handle = std::exchange(other.m_handle, invalid_handle);
+        m_ring_features = std::exchange(other.m_ring_features, 0);
+        m_to_submit = std::exchange(other.m_to_submit, 0);
+        m_sring_tail = std::exchange(other.m_sring_tail, nullptr);
+        m_sring_mask = std::exchange(other.m_sring_mask, nullptr);
+        m_sring_array = std::exchange(other.m_sring_array, nullptr);
+        m_sqes = std::exchange(other.m_sqes, nullptr);
+        m_cring_tail = std::exchange(other.m_cring_tail, nullptr);
+        m_cring_head = std::exchange(other.m_cring_head, nullptr);
+        m_cring_mask = std::exchange(other.m_cring_mask, nullptr);
+        m_cqes = std::exchange(other.m_cqes, nullptr);
+        m_last_id = std::exchange(other.m_last_id, 0);
+        m_completions = std::move(other.m_completions);
+        return *this;
+    }
+
 private:
     struct Setup {
         native_handle_type handle;
@@ -72,7 +112,6 @@ private:
         , m_cring_tail { info.cring_tail }
         , m_cring_mask { info.cring_mask }
         , m_cqes { info.cqes }
-        , m_work(ctx, this)
     {
     }
 
@@ -556,9 +595,44 @@ public:
         return async_unlinkat(entry_flags, AT_FDCWD, pathname, 0, std::forward<F>(f));
     }
 
+    template <typename E>
+    void poll(E &executor, bool should_block)
+    {
+        sigset_t sigmask;
+        int consumed = static_cast<int>(syscall(SYS_io_uring_enter, m_handle, m_to_submit, should_block, IORING_ENTER_GETEVENTS, &sigmask));
+        if (consumed < 0)
+            throw std::system_error(errno, std::system_category(), "io_uring_enter");
+
+        for (;;) {
+            std::uint32_t head = std::atomic_ref<std::uint32_t>(*m_cring_head).load(std::memory_order_acquire);
+            std::uint32_t tail = std::atomic_ref<std::uint32_t>(*m_cring_tail).load(std::memory_order_acquire);
+            if (head == tail)
+                break;
+            auto result = m_cqes[head & (*m_cring_mask)];
+            head++;
+            std::atomic_ref<std::uint32_t>(*m_cring_head).store(head, std::memory_order_release);
+            auto it = std::lower_bound(m_completions.begin(), m_completions.end(), result.user_data, [](auto const &completion, std::uint64_t id) {
+                return completion.first < id;
+            });
+            if (it != m_completions.end() && it->first == result.user_data) {
+                executor.post([completion = std::move(it->second), result = result.res]() mutable {
+                    completion(static_cast<std::int32_t>(result));
+                });
+                it->first = 0;
+            }
+        }
+        m_completions.erase(std::remove_if(m_completions.begin(), m_completions.end(), [](auto const &completion) {
+            return completion.first == 0 || !static_cast<bool>(completion.second);
+        }),
+            m_completions.end());
+    }
+
     ~ioring_service()
     {
-        close(m_handle);
+        if (m_handle != invalid_handle) {
+            ::close(m_handle);
+            m_handle = invalid_handle;
+        }
     }
 
 private:
@@ -627,87 +701,14 @@ private:
         m_sring_array[index] = index;
         tail++;
         std::atomic_ref<std::uint32_t>(*m_sring_tail).store(tail, std::memory_order_release);
-        ensure_work();
-        m_working++;
         return operation.user_data;
     }
-
-    void ensure_work()
-    {
-        if (!m_working)
-            m_work.requeue();
-    }
-
-    struct Work {
-        template <typename E>
-        Work(E &ctx, ioring_service *self)
-        {
-            m_service = self;
-            m_data = reinterpret_cast<E *>(&ctx);
-            m_post_work = +[](Work &work) {
-                auto &ctx = *reinterpret_cast<E *>(work.m_data);
-                ctx.post(work);
-            };
-            m_post_completion = +[](Work &work, tcx::unique_function<void(std::int32_t)> completion, std::int32_t result) {
-                auto &ctx = *reinterpret_cast<E *>(work.m_data);
-                ctx.post([completion = std::move(completion), result]() mutable {
-                    completion(std::move(result));
-                });
-            };
-        }
-
-        void operator()()
-        {
-            sigset_t sigmask;
-            int consumed = static_cast<int>(syscall(SYS_io_uring_enter, m_service->m_handle, m_service->m_to_submit, 1, 0, &sigmask));
-            if (consumed < 0)
-                throw std::system_error(errno, std::system_category(), "io_uring_enter");
-
-            for (;;) {
-                std::uint32_t head = std::atomic_ref<std::uint32_t>(*m_service->m_cring_head).load(std::memory_order_acquire);
-                std::uint32_t tail = std::atomic_ref<std::uint32_t>(*m_service->m_cring_tail).load(std::memory_order_acquire);
-                if (head == tail)
-                    break;
-                auto result = m_service->m_cqes[head & (*m_service->m_cring_mask)];
-                head++;
-                std::atomic_ref<std::uint32_t>(*m_service->m_cring_head).store(head, std::memory_order_release);
-                auto it = std::lower_bound(m_service->m_completions.begin(), m_service->m_completions.end(), result.user_data, [](auto const &completion, std::uint64_t id) {
-                    return completion.first < id;
-                });
-                if (it != m_service->m_completions.end() && it->first == result.user_data) {
-                    post(std::move(it->second), result.res);
-                    it->first = 0;
-                }
-                m_service->m_working--;
-            }
-            m_service->m_completions.erase(std::remove_if(m_service->m_completions.begin(), m_service->m_completions.end(), [](auto const &completion) {
-                return completion.first == 0 || !static_cast<bool>(completion.second);
-            }),
-                m_service->m_completions.end());
-            if (m_service->m_working)
-                requeue();
-        }
-
-        void requeue()
-        {
-            m_post_work(*this);
-        }
-
-        void post(tcx::unique_function<void(std::int32_t)> completion, std::int32_t result)
-        {
-            m_post_completion(*this, std::move(completion), result);
-        }
-
-        ioring_service *m_service = nullptr;
-        void *m_data = nullptr;
-        void (*m_post_work)(Work &) = nullptr;
-        void (*m_post_completion)(Work &, tcx::unique_function<void(std::int32_t)>, std::int32_t) = nullptr;
-    };
 
 private:
     native_handle_type m_handle;
     std::uint32_t m_ring_features;
 
+    std::uint32_t m_to_submit {};
     std::uint32_t *m_sring_tail;
     std::uint32_t *m_sring_mask;
     std::uint32_t *m_sring_array;
@@ -716,16 +717,11 @@ private:
     std::uint32_t *m_cring_tail;
     std::uint32_t *m_cring_head;
     std::uint32_t *m_cring_mask;
-
     io_uring_cqe *m_cqes;
 
-    std::vector<std::pair<std::uint64_t, tcx::unique_function<void(std::int32_t)>>> m_completions;
-
     std::uint64_t m_last_id {};
-    std::uint32_t m_to_submit {};
 
-    std::uint32_t m_working {};
-    Work m_work;
+    std::vector<std::pair<std::uint64_t, tcx::unique_function<void(std::int32_t)>>> m_completions;
 };
 
 }
