@@ -44,6 +44,7 @@ public:
     {
     }
 
+    ioring_service(ioring_service const &other) = delete;
     ioring_service(ioring_service &&other) noexcept
         : m_handle { std::exchange(other.m_handle, invalid_handle) }
         , m_ring_features { std::exchange(other.m_ring_features, 0) }
@@ -62,6 +63,7 @@ public:
     {
     }
 
+    ioring_service &operator=(ioring_service const &other) = delete;
     ioring_service &operator=(ioring_service &&other) noexcept
     {
         if (this == &other)
