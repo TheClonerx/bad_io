@@ -9,7 +9,7 @@
 #include <tcx/unsynchronized_execution_context.hpp>
 
 template <typename E>
-tcx::awaitable<void> run(E& executor)
+tcx::awaitable<void> run(E &executor)
 {
     std::exception_ptr e;
     tcx::native_handle_type fd = tcx::invalid_handle;
@@ -24,7 +24,7 @@ tcx::awaitable<void> run(E& executor)
     }
     if (fd != -1) {
         try {
-        } catch (std::system_error&) {
+        } catch (std::system_error &) {
         }
     }
     if (e)
@@ -34,7 +34,7 @@ tcx::awaitable<void> run(E& executor)
 
 int main()
 {
-    tcx::unsynchronized_execution_context ctx;
+    tcx::unsynchronized_execution_context<std::pmr::polymorphic_allocator<std::byte>, tcx::ioring_service> ctx;
     run(ctx).post_into(ctx);
     ctx.run();
 }
