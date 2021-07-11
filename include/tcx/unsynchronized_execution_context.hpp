@@ -19,12 +19,12 @@ class unsynchronized_execution_context {
 public:
     using allocator_type = typename std::allocator_traits<Allocator>::template rebind_alloc<std::byte>;
 
-    unsynchronized_execution_context() noexcept
-        : m_alloc {}
+    unsynchronized_execution_context()
+        : unsynchronized_execution_context(allocator_type {})
     {
     }
 
-    unsynchronized_execution_context(allocator_type const &alloc) noexcept
+    explicit unsynchronized_execution_context(allocator_type const &alloc)
         : m_alloc { alloc }
     {
     }
@@ -105,7 +105,7 @@ public:
     }
 
 private:
-    allocator_type m_alloc;
+    [[no_unique_address]] allocator_type m_alloc;
     using function_storage = tcx::unique_function<void()>;
     std::queue<function_storage> m_function_queue;
     struct service_data {
