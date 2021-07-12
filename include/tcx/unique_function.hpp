@@ -31,8 +31,8 @@ public:
         if constexpr (std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
             m_vptr = reinterpret_cast<void *>(static_cast<result_type (*)(Args...)>(f));
             m_impl = +[](unique_function *self, Args &&...args) -> result_type {
-                auto f = reinterpret_cast<std::decay_t<F>>(self->m_vptr);
-                return f(std::forward<Args>(args)...);
+                auto *f = reinterpret_cast<result_type (*)(Args...)>(self->m_vptr);
+                return (*f)(std::forward<Args>(args)...);
             };
         } else {
             void *p = m_storage;
