@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TCX_FUNCTION_VIEW_HPP
+#define TCX_FUNCTION_VIEW_HPP
 
 #include <functional> // for std::bad_function_call
 #include <type_traits>
@@ -155,3 +156,5 @@ private:
 };
 
 } // namespace tcx
+
+#endif

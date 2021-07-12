@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TCX_AWAITABLE_HPP
+#define TCX_AWAITABLE_HPP
 
 #include <coroutine>
 #include <exception>
@@ -197,3 +198,5 @@ private:
 };
 
 } // namespace tcx
+
+#endif
