@@ -101,7 +101,7 @@ private:
     void poll_dynamic_servcies()
     {
         for (auto &[service_type, service_data] : m_services) {
-            service_data.poll(service_data.ptr, *this, !m_function_queue.empty());
+            service_data.poll(service_data.ptr, *this);
         }
     }
 
@@ -146,10 +146,10 @@ public:
             auto *service = reinterpret_cast<std::remove_cvref_t<T> *>(ptr);
             alloc.delete_object(service);
         };
-        auto poll = +[](void *ptr, unsynchronized_execution_context &executor, bool should_block) {
+        auto poll = +[](void *ptr, unsynchronized_execution_context &executor) {
             auto *p_service = reinterpret_cast<std::remove_cvref_t<T> *>(ptr);
             if constexpr (tcx::impl::has_conditional_poll<std::remove_cvref_t<T>, unsynchronized_execution_context>) {
-                p_service->poll(executor, !executor.m_function_queue.empty());
+                p_service->poll(executor, executor.m_function_queue.empty());
             } else if constexpr (tcx::impl::has_poll<std::remove_cvref_t<T>, unsynchronized_execution_context>) {
                 p_service->poll(executor);
             }
@@ -187,7 +187,7 @@ private:
     std::queue<function_storage> m_function_queue;
     struct service_data {
         void *ptr;
-        void (*poll)(void *, unsynchronized_execution_context &, bool);
+        void (*poll)(void *, unsynchronized_execution_context &);
         void (*dest)(allocator_type &alloc, void *);
     };
     std::unordered_map<std::type_index, service_data> m_services;
