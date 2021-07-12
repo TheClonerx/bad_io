@@ -64,7 +64,7 @@ public:
         return event.data.u64;
     }
 
-    int poll_remove(int fd) noexcept
+    [[nodiscard]] int poll_remove(int fd) noexcept
     {
         if (epoll_ctl(m_handle, EPOLL_CTL_DEL, fd, nullptr) < 0)
             return errno;

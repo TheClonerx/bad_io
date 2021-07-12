@@ -19,7 +19,7 @@ I wrote `tcx::function_view` thinking it would be useful for this project. Curre
 - [ ] Make the executor fully allocator aware
 - [ ] Learn about how overlapping IO works on Windows
 - Implement following IO services:
-    - [ ] `tcx::epoll_service`
+    - [X] `tcx::epoll_service`
     - [ ] `tcx::poll_service`
     - [ ] `tcx::overlapped_service`
     - [ ] and maybe `tcx::kqueue_service`
@@ -30,8 +30,48 @@ I wrote `tcx::function_view` thinking it would be useful for this project. Curre
 
 
 # DOCUMENTATION
+## `tcx::epoll_service`
+`#include <tcx/services/epoll_service.hpp>`
+
+### Type members
+#### `typename native_handle_type` = `int`
+
+### Function members
+#### `explicit epoll_service(E &context)` (constructor)
+Creates the epoll file descriptor.
+
+#### `epoll_service(epoll_service const&) = delete` (constructor)
+#### `epoll_service(epoll_service &&) noexcept` (constructor)
+Moves the epoll_service
+
+#### `~epoll_service()` (destructor)
+Closes the epoll file descriptor.
+
+#### `epoll_service &operator=(epoll_service const&) = delete`
+#### `epoll_service &operator=(epoll_service &&) noexcept`
+Moves the epoll_service.
+
+#### `native_handle_type native_handle() noexcept`
+Returns the native handle to the epoll instance.
+
+#### `void poll(E &executor, bool should_block)`
+Optionally waits for the completion of an operation if `should_block` is true, and then it posts the completions (if any) to `executor`.
+
+### `auto async_poll_add(int fd, std::uint32_t events, F &&f)`
+Adds an entry to the interest list of the epoll instance, similar to polling using `epoll(7)`, however, it always works in one shot mode.  
+`F` must be callable with the following function signature `void(int, std::uint32_t)`, the first argument, if non zero, corresponds to an error (`errno(3)`), the second argument is a bit mask of the triggered events.  
+Returns the id of the operation, this uniquely identifies the operation in the same `tcx::epoll_service` instance.  
+
+### `[[nodiscard]] int poll_remove(int fd) noexcept`
+Removes the target file descriptor `fd` from the interest list of the epoll instance.
+Returns 0 on success, `errno` otherwise.
+
+#
+#
+
 ## `tcx::ioring_service`
 `#include <tcx/services/ioring_service.hpp>`
+
 ### Type members
 #### `typename native_handle_type` = `int`
 The native handle type for the io_uring instance.
