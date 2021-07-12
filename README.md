@@ -13,7 +13,7 @@ I wrote `tcx::function_view` thinking it would be useful for this project. Curre
 `tcx::unsynchronized_execution_context` is essentially just a function queue, as it's name implies, it's not thread safe.
 
 # TODO
-- [ ] Implement arguments for `tcx::function_view`
+- [X] Implement arguments for `tcx::function_view`
 - [X] Implement SBO for `tcx::unique_functiom`
 - [ ] Implement allocator aware move operations for `tcx::unique_function`
 - [ ] Make the executor fully allocator aware
