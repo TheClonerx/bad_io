@@ -63,14 +63,14 @@ Swaps two `tcx::epoll_service`.
 #### `friend void swap(epoll_service &first, epoll_service &second) noexcept`
 Swaps two `tcx::epoll_service`.
 
-#### `auto async_poll_add(int fd, std::uint32_t events, F &&f)`
+#### `void async_poll_add(int fd, std::uint32_t events, F &&f)`
 Adds an entry to the interest list of the epoll instance, similar to polling using `epoll(7)`, however, it always works in one shot mode.  
 `F` must be callable with the following function signature `void(int, std::uint32_t)`, the first argument, if non zero, corresponds to an error (`errno(3)`), the second argument is a bit mask of the triggered events.  
-Returns the id of the operation, this uniquely identifies the operation in the same `tcx::epoll_service` instance.  
 
-#### `[[nodiscard]] int poll_remove(int fd) noexcept`
-Removes the target file descriptor `fd` from the interest list of the epoll instance.
-Returns 0 on success, `errno` otherwise.
+#### `void poll_remove(int fd, F &&f) noexcept`
+Removes the target file descriptor `fd` from the interest list of the epoll instance.  
+`F` must be callable with the following function signature `void(int, std::uint32_t)`, the first argument, if non zero, corresponds to an error (`errno(3)`), the second argument is always zero.  
+The associated poll request will complete with an error of `ECANCELED`.
 
 #
 #
