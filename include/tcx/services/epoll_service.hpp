@@ -54,13 +54,21 @@ public:
     template <tcx::epoll_completion_handler F>
     auto async_poll_add(int fd, std::uint32_t events, F &&f)
     {
-        return submit(EPOLL_CTL_ADD, fd, events, std::forward<F>(f));
+        epoll_event event {};
+        event.data.u64 = ++m_last_id;
+        event.events = events | EPOLLONESHOT;
+        auto &completion = m_completions.emplace_back(static_cast<std::uint64_t>(event.data.u64), std::forward<F>(f));
+        if (epoll_ctl(m_handle, EPOLL_CTL_ADD, fd, &event) < 0) {
+            completion.error = errno;
+        }
+        return event.data.u64;
     }
 
-    template <tcx::epoll_completion_handler F>
-    auto async_poll_remove(int fd, F &&f)
+    int poll_remove(int fd) noexcept
     {
-        return submit(EPOLL_CTL_DEL, fd, std::forward<F>(f));
+        if (epoll_ctl(m_handle, EPOLL_CTL_DEL, fd, nullptr) < 0)
+            return errno;
+        return 0;
     }
 
     template <typename E>
@@ -119,20 +127,6 @@ public:
             ::close(m_handle);
             m_handle = tcx::invalid_handle;
         }
-    }
-
-private:
-    template <typename F>
-    auto submit(int op, int fd, std::uint32_t events, F &&f)
-    {
-        epoll_event event {};
-        event.data.u64 = ++m_last_id;
-        event.events = events | EPOLLONESHOT;
-        auto &completion = m_completions.emplace_back(static_cast<std::uint64_t>(event.data.u64), std::forward<F>(f));
-        if (epoll_ctl(m_handle, op, fd, &event) < 0) {
-            completion.error = errno;
-        }
-        return event.data.u64;
     }
 
 private:
