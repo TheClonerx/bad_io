@@ -57,12 +57,12 @@ Returns the native handle to the epoll instance.
 #### `void poll(E &executor, bool should_block)`
 Optionally waits for the completion of an operation if `should_block` is true, and then it posts the completions (if any) to `executor`.
 
-### `auto async_poll_add(int fd, std::uint32_t events, F &&f)`
+#### `auto async_poll_add(int fd, std::uint32_t events, F &&f)`
 Adds an entry to the interest list of the epoll instance, similar to polling using `epoll(7)`, however, it always works in one shot mode.  
 `F` must be callable with the following function signature `void(int, std::uint32_t)`, the first argument, if non zero, corresponds to an error (`errno(3)`), the second argument is a bit mask of the triggered events.  
 Returns the id of the operation, this uniquely identifies the operation in the same `tcx::epoll_service` instance.  
 
-### `[[nodiscard]] int poll_remove(int fd) noexcept`
+#### `[[nodiscard]] int poll_remove(int fd) noexcept`
 Removes the target file descriptor `fd` from the interest list of the epoll instance.
 Returns 0 on success, `errno` otherwise.
 
