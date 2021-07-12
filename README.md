@@ -57,10 +57,10 @@ Returns the native handle to the epoll instance.
 #### `void poll(E &executor, bool should_block)`
 Optionally waits for the completion of an operation if `should_block` is true, and then it posts the completions (if any) to `executor`.
 
-#### `void swap(epoll_service &other) noexcpet`
+#### `void swap(epoll_service &other) noexcept`
 Swaps two `tcx::epoll_service`.
 
-#### `friend void swap(epoll_service &first, epoll_service &second) noexcpet`
+#### `friend void swap(epoll_service &first, epoll_service &second) noexcept`
 Swaps two `tcx::epoll_service`.
 
 #### `auto async_poll_add(int fd, std::uint32_t events, F &&f)`
