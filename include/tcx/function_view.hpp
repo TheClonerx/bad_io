@@ -1,16 +1,16 @@
 #pragma once
 
-#include <functional>
+#include <functional> // for std::bad_function_call
 #include <type_traits>
-// #include <utility>
+#include <utility> // for std::forward
 
 namespace tcx {
 
 template <typename T>
-struct function_reference;
+struct function_view;
 
 template <typename R, typename... Args>
-struct function_reference<R(Args...)> {
+struct function_view<R(Args...)> {
 public:
     using result_type = R;
 
@@ -18,28 +18,28 @@ private:
     using function_pointer_type = R (*)(void *, Args &&...);
 
 public:
-    constexpr function_reference() noexcept = default;
-    constexpr function_reference(std::nullptr_t) noexcept
-        : function_reference()
+    constexpr function_view() noexcept = default;
+    constexpr function_view(std::nullptr_t) noexcept
+        : function_view()
     {
     }
 
-    constexpr function_reference(function_reference const &) noexcept = default;
-    constexpr function_reference(function_reference &&other) noexcept
+    constexpr function_view(function_view const &) noexcept = default;
+    constexpr function_view(function_view &&other) noexcept
         : m_data { std::exchange(other.m_data, nullptr) }
         , m_func { std::exchange(other.m_func, nullptr) }
     {
     }
 
-    constexpr function_reference &operator=(function_reference const &) noexcept = default;
-    constexpr function_reference &operator=(function_reference &&other) noexcept
+    constexpr function_view &operator=(function_view const &) noexcept = default;
+    constexpr function_view &operator=(function_view &&other) noexcept
     {
         swap(other);
         return *this;
     }
 
     template <typename F>
-    function_reference(F &f) noexcept requires std::is_invocable_r_v<R, F, Args...>
+    function_view(F &f) noexcept requires std::is_invocable_r_v<R, F, Args...>
     {
         if constexpr (std::is_convertible_v<F, result_type (*)(Args...)> && !std::is_constant_evaluated()) {
             m_data = static_cast<void *>(static_cast<R (*)(Args...)>(f));
@@ -56,7 +56,7 @@ public:
         }
     }
 
-    constexpr void swap(function_reference &other) noexcept
+    constexpr void swap(function_view &other) noexcept
     {
         using std::swap;
         swap(m_data, other.m_data);
@@ -81,7 +81,7 @@ private:
 };
 
 template <typename R, typename... Args>
-struct function_reference<R(Args...) const> {
+struct function_view<R(Args...) const> {
 public:
     using result_type = R;
 
@@ -89,31 +89,31 @@ private:
     using function_pointer_type = R (*)(void const *, Args &&...);
 
 public:
-    constexpr function_reference() noexcept = default;
-    constexpr function_reference(std::nullptr_t) noexcept
-        : function_reference()
+    constexpr function_view() noexcept = default;
+    constexpr function_view(std::nullptr_t) noexcept
+        : function_view()
     {
     }
 
-    constexpr function_reference(function_reference const &) noexcept = default;
-    constexpr function_reference(function_reference &&other) noexcept
+    constexpr function_view(function_view const &) noexcept = default;
+    constexpr function_view(function_view &&other) noexcept
         : m_data { std::exchange(other.m_data, nullptr) }
         , m_func { std::exchange(other.m_func, nullptr) }
     {
     }
 
-    constexpr function_reference &operator=(function_reference const &) noexcept = default;
-    constexpr function_reference &operator=(function_reference &&other) noexcept
+    constexpr function_view &operator=(function_view const &) noexcept = default;
+    constexpr function_view &operator=(function_view &&other) noexcept
     {
         swap(other);
         return *this;
     }
 
     template <typename F>
-    function_reference(F &&f) requires(std::is_invocable_r_v<R, F, Args...> &&std::is_rvalue_reference_v<F>) = delete;
+    function_view(F &&f) requires(std::is_invocable_r_v<R, F, Args...> &&std::is_rvalue_reference_v<F>) = delete;
 
     template <typename F>
-    constexpr function_reference(F const &f) noexcept requires std::is_invocable_r_v<R, F, Args...>
+    constexpr function_view(F const &f) noexcept requires std::is_invocable_r_v<R, F, Args...>
     {
         if constexpr (std::is_convertible_v<F, result_type (*)(Args...)> && !std::is_constant_evaluated()) {
             m_data = static_cast<void const *>(static_cast<R (*)(Args...)>(f));
@@ -130,7 +130,7 @@ public:
         }
     }
 
-    constexpr void swap(function_reference &other) noexcept
+    constexpr void swap(function_view &other) noexcept
     {
         using std::swap;
         swap(m_data, other.m_data);
