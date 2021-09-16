@@ -185,9 +185,7 @@ public:
 #ifdef IORING_FEAT_POLL_32BITS
         if (m_ring_features & IORING_FEAT_POLL_32BITS) {
             op.poll32_events = events;
-            return submit(op, [completion = std::move(f)](io_uring_cqe result) {
-                completion(result.res);
-            });
+            return submit(op, std::forward<F>(f));
         }
 #endif
         if (events > UINT16_MAX)
