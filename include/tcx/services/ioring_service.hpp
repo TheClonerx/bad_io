@@ -32,15 +32,13 @@ public:
     using native_handle_type = int;
     static constexpr native_handle_type invalid_handle = -1;
 
-    template <typename E>
-    explicit ioring_service(E &ctx)
-        : ioring_service(ctx, 1024)
+    ioring_service()
+        : ioring_service(1024)
     {
     }
 
-    template <typename E>
-    ioring_service(E &ctx, std::uint32_t entries)
-        : ioring_service(ctx, setup_rings(entries))
+    explicit ioring_service(std::uint32_t entries)
+        : ioring_service(setup_rings(entries))
     {
     }
 
@@ -102,8 +100,8 @@ private:
 
         io_uring_cqe *cqes;
     };
-    template <typename E>
-    ioring_service(E &ctx, Setup info)
+
+    ioring_service(Setup const &info)
         : m_handle { info.handle }
         , m_ring_features { info.ring_features }
         , m_sring_tail { info.sring_tail }
