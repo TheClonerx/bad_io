@@ -43,7 +43,7 @@ public:
         });
     }
 
-    void run();
+    std::size_t run();
 
     ~unsynchronized_execution_context() = default;
 
