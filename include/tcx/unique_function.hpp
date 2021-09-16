@@ -6,33 +6,46 @@
 #include <utility>
 
 namespace tcx {
-template <typename F, typename Allocator = std::allocator<std::byte>>
+
+template <typename F>
 class unique_function;
 
-template <typename R, typename... Args, typename Allocator>
-class unique_function<R(Args...), Allocator> {
+template <typename R, typename... Args>
+class alignas(64) unique_function<R(Args...)> {
 public:
-    using allocator_type = Allocator;
     using result_type = R;
+    using arguments_tuple = std::tuple<Args &&...>;
 
 private:
-    using func_impl_t = result_type (*)(unique_function *self, Args &&...);
-    using func_dest_t = void (*)(unique_function *self);
-    using func_move_t = void (*)(unique_function *self, unique_function *other);
-    using void_pointer = typename std::allocator_traits<allocator_type>::void_pointer;
+    using func_call_t = result_type (*)(unique_function *self, Args &&...);
+    using func_destroy_t = void (*)(void *data);
+    using func_move_t = void (*)(void *lhs, void *rhs);
+
+    struct virtual_table {
+        func_move_t move_construct;
+        func_destroy_t destroy;
+    };
+
+    struct virtual_state {
+        virtual_table const *vtable = nullptr;
+        func_call_t call = nullptr;
+        void *data = nullptr;
+    };
 
 public:
     unique_function() noexcept = default;
 
     template <typename F>
-    unique_function(std::allocator_arg_t, allocator_type const &alloc, F &&f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) requires(std::is_invocable_r_v<R, F, Args...>)
-        : m_alloc(alloc)
+    explicit unique_function(F &&f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) requires(std::is_invocable_r_v<R, F, Args...> &&std::is_move_constructible_v<F>)
     {
         if constexpr (std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
-            m_vptr = reinterpret_cast<void *>(static_cast<result_type (*)(Args...)>(f));
-            m_impl = +[](unique_function *self, Args &&...args) -> result_type {
-                auto *f = reinterpret_cast<result_type (*)(Args...)>(self->m_vptr);
-                return (*f)(std::forward<Args>(args)...);
+            m_state.data = reinterpret_cast<void *>(static_cast<result_type (*)(Args...)>(f));
+            m_state.call = +[](unique_function *self, Args &&...args) -> result_type {
+                auto *f = reinterpret_cast<result_type (*)(Args...)>(self->m_state.data);
+                if constexpr (std::is_void_v<result_type>)
+                    return static_cast<result_type>((*f)(std::forward<Args>(args)...));
+                else
+                    return (*f)(std::forward<Args>(args)...);
             };
         } else {
             void *p = m_storage;
@@ -40,69 +53,66 @@ public:
             p = std::align(alignof(F), sizeof(F), p, space);
             if (p) { // we can store the object inline at p
                 std::construct_at(reinterpret_cast<std::remove_cvref_t<F> *>(p), std::forward<F>(f));
-                func_dest_t dest = +[](unique_function *self) -> void {
-                    auto p = reinterpret_cast<std::remove_cvref_t<F> *>(self->m_vptr);
-                    std::destroy_at(p);
-                    self->m_vptr = nullptr;
+                func_call_t call = +[](unique_function *self, Args &&...args) -> result_type {
+                    auto *f = reinterpret_cast<std::remove_cvref_t<F> *>(self->m_state.data);
+                    if constexpr (std::is_void_v<result_type>)
+                        return static_cast<result_type>((*f)(std::forward<Args>(args)...));
+                    else
+                        return (*f)(std::forward<Args>(args)...);
                 };
-                func_impl_t impl = +[](unique_function *self, Args &&...args) -> result_type {
-                    auto *f = reinterpret_cast<std::remove_cvref_t<F> *>(self->m_vptr);
-                    return (*f)(std::forward<Args>(args)...);
-                };
-                func_move_t mov = +[](unique_function *lhs, unique_function *rhs) {
-                    // TODO
-                };
-                m_dest = dest;
-                m_impl = impl;
-                m_vptr = p;
+
+                static auto const table = []() {
+                    virtual_table result {};
+                    result.destroy = +[](void *data) -> void {
+                        auto p = reinterpret_cast<std::remove_cvref_t<F> *>(data);
+                        std::destroy_at(p);
+                    };
+
+                    result.move_construct = +[](void *lhs, void *rhs) {
+                        auto *second = reinterpret_cast<std::remove_cvref_t<F> *>(rhs);
+                        new (lhs) std::remove_cvref_t<F>(std::move(*second));
+                    };
+                    return result;
+                }();
+                m_state.data = p;
+                m_state.call = call;
+                m_state.vtable = &table;
 
             } else {
-                using rebound_allocator_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<std::remove_cvref_t<F>>;
+                auto *data = new std::remove_cvref_t<F>(std::forward<F>(f));
 
-                rebound_allocator_t rebound_allocator = m_alloc;
-                auto data = std::allocator_traits<rebound_allocator_t>::allocate(rebound_allocator, 1);
-                std::allocator_traits<rebound_allocator_t>::construct(rebound_allocator, data, std::forward<F>(f));
+                func_call_t call = +[](unique_function *self, Args &&...args) -> result_type {
+                    auto *f = reinterpret_cast<std::remove_cvref_t<F> *>(std::to_address(self->m_state.data));
+                    if constexpr (std::is_void_v<result_type>)
+                        return static_cast<result_type>((*f)(std::forward<Args>(args)...));
+                    else
+                        return (*f)(std::forward<Args>(args)...);
+                };
+                static auto const table = []() {
+                    virtual_table result;
+                    result.destroy = +[](void *data) -> void {
+                        auto *obj = reinterpret_cast<std::remove_cvref_t<F> *>(data);
+                        delete obj;
+                    };
 
-                func_dest_t dest = +[](unique_function *self) -> void {
-                    rebound_allocator_t rebound_allocator = self->m_alloc;
-                    auto p = static_cast<typename std::allocator_traits<rebound_allocator_t>::pointer>(std::move(self->m_data));
-                    std::allocator_traits<rebound_allocator_t>::destroy(rebound_allocator, p);
-                    std::allocator_traits<rebound_allocator_t>::deallocate(rebound_allocator, p, 1);
+                    result.move_construct = +[](void *lhs, void *rhs) {
+                        auto *second = reinterpret_cast<std::remove_cvref_t<F> *>(rhs);
+                        new (lhs) std::remove_cvref_t<F>(std::move(*second));
+                    };
 
-                    // change the active member of the union
-                    std::destroy_at(std::addressof(self->m_data));
-                    self->m_vptr = nullptr;
-                };
-                func_impl_t impl = +[](unique_function *self, Args &&...args) -> result_type {
-                    auto *f = reinterpret_cast<std::remove_cvref_t<F> *>(std::to_address(self->m_data));
-                    return (*f)(std::forward<Args>(args)...);
-                };
-                func_move_t mov = +[](unique_function *lhs, unique_function *rhs) {
-                    // TODO
-                };
-                m_dest = dest;
-                m_impl = impl;
-                m_data = data;
+                    return result;
+                }();
+                m_state.data = reinterpret_cast<void *>(data);
+                m_state.call = call;
+                m_state.vtable = &table;
             }
         }
     }
 
-    template <typename F>
-    unique_function(F &&f)
-        : unique_function(std::allocator_arg, allocator_type {}, std::forward<F>(f))
-    {
-    }
-
     unique_function(unique_function const &) = delete;
     unique_function(unique_function &&other) noexcept
-        : m_alloc(std::move(other.m_alloc))
-        , m_impl(std::exchange(other.m_impl, nullptr))
-        , m_dest(std::exchange(other.m_dest, nullptr))
     {
-        if (m_dest)
-            m_data = std::exchange(other.m_data, nullptr);
-        else
-            m_vptr = std::exchange(other.m_vptr, nullptr);
+        swap(*this, other);
     }
 
     unique_function &operator=(unique_function const &) = delete;
@@ -112,75 +122,66 @@ public:
         return *this;
     }
 
-    // having allocator aware move, or using small buffer optimization
-    // would require storing a function pointer to the move operation.
-    // while moving using a different allocator is not a common operation,
-    // having small buffer optimization would be great for most cases
-
-    template <typename... U>
-    result_type operator()(U &&...args) requires(std::is_invocable_v<func_impl_t, unique_function *, U...>)
+    result_type operator()(Args &&...args)
     {
-        return m_impl(this, std::forward<U>(args)...);
+        return (*m_state.call)(this, std::forward<Args &&>(args)...);
     }
 
     explicit operator bool() const noexcept
     {
-        return m_impl;
+        return m_state.call;
     }
 
     friend void swap(unique_function &first, unique_function &second) noexcept
     {
         using std::swap;
-        if (first.m_dest && second.m_dest) {
-            swap(first.m_data, second.m_data);
-        } else if (first.m_dest) {
-            auto tmp = std::move(first.m_data);
-            std::destroy_at(std::addressof(first.m_data));
-            first.m_vptr = second.m_vptr;
-            std::construct_at(std::addressof(second.m_data), std::move(tmp));
+        bool const first_is_inline = std::begin(first.m_storage) < reinterpret_cast<char *>(first.m_state.data) && reinterpret_cast<char *>(first.m_state.data) < std::end(first.m_storage);
+        bool const second_is_inline = std::begin(second.m_storage) < reinterpret_cast<char *>(second.m_state.data) && reinterpret_cast<char *>(second.m_state.data) < std::end(second.m_storage);
+        if (first_is_inline && second_is_inline) {
+            alignas(64) char tmp_buf[64];
+            std::size_t const first_index = sizeof(virtual_state) + (reinterpret_cast<char *>(first.m_state.data) - std::begin(first.m_storage));
+            std::size_t const second_index = sizeof(virtual_state) + (reinterpret_cast<char *>(second.m_state.data) - std::begin(second.m_storage));
+            first.m_state.vtable->move_construct(tmp_buf + first_index, first.m_state.data);
+            first.m_state.vtable->destroy(first.m_state.data);
+            second.m_state.vtable->move_construct(first.m_storage + second_index - sizeof(virtual_state), second.m_state.data);
+            second.m_state.vtable->destroy(second.m_state.data);
+            first.m_state.vtable->move_construct(second.m_storage + first_index - sizeof(virtual_state), tmp_buf + first_index);
+            first.m_state.vtable->destroy(tmp_buf + first_index);
+
+            first.m_state.data = first.m_storage + second_index - sizeof(virtual_state);
+            second.m_state.data = second.m_storage + first_index - sizeof(virtual_state);
+
+            swap(first.m_state.vtable, second.m_state.vtable);
+            swap(first.m_state.call, second.m_state.call);
+        } else if (first_is_inline) {
+            std::size_t const first_index = reinterpret_cast<char *>(first.m_state.data) - std::begin(first.m_storage);
+            first.m_state.vtable->move_construct(second.m_storage + first_index, first.m_state.data);
+            first.m_state.vtable->destroy(first.m_state.data);
+            first.m_state.data = second.m_state.data;
+            second.m_state.data = second.m_storage + first_index;
+            swap(first.m_state.vtable, second.m_state.vtable);
+            swap(first.m_state.call, second.m_state.call);
+        } else if (second_is_inline) {
+            swap(second, first);
         } else {
-            auto tmp = std::move(second.m_data);
-            std::destroy_at(std::addressof(second.m_data));
-            second.m_vptr = first.m_vptr;
-            std::construct_at(std::addressof(first.m_data), std::move(tmp));
+            swap(first.m_state.vtable, second.m_state.vtable);
+            swap(first.m_state.call, second.m_state.call);
+            swap(first.m_state.data, second.m_state.data);
         }
-        swap(first.m_alloc, second.m_alloc);
-        swap(first.m_impl, second.m_impl);
-        swap(first.m_dest, second.m_dest);
-        swap(first.m_move, second.m_move);
-        swap(first.m_storage, second.m_storage);
     }
 
     ~unique_function()
     {
-        if (m_dest)
-            m_dest(this);
-        m_data = nullptr;
-        m_dest = nullptr;
-        m_impl = nullptr;
-        m_move = nullptr;
+        if (m_state.vtable && m_state.vtable->destroy)
+            m_state.vtable->destroy(this);
+        m_state.vtable = nullptr;
+        m_state.call = nullptr;
+        m_state.data = nullptr;
     }
 
 private:
-    [[no_unique_address]] allocator_type m_alloc;
-    func_impl_t m_impl = nullptr;
-    func_dest_t m_dest = nullptr;
-    func_move_t m_move = nullptr; // supposed to store the move operation
-    union {
-        void_pointer m_data;
-        void *m_vptr = nullptr;
-    };
-    struct _state {
-        [[no_unique_address]] allocator_type m_alloc;
-        func_impl_t m_impl = nullptr;
-        func_dest_t m_dest = nullptr;
-        func_move_t m_move = nullptr;
-        union {
-            void_pointer m_data;
-            void *m_vptr = nullptr;
-        };
-    };
-    char m_storage[64 - sizeof(_state)];
+    virtual_state m_state;
+    char m_storage[64 - sizeof(virtual_state)];
 };
 
 }
