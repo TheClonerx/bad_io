@@ -172,8 +172,8 @@ public:
 
     ~unique_function()
     {
-        if (m_state.vtable && m_state.vtable->destroy)
-            m_state.vtable->destroy(this);
+        if (m_state.vtable && m_state.vtable->destroy && m_state.data)
+            m_state.vtable->destroy(m_state.data);
         m_state.vtable = nullptr;
         m_state.call = nullptr;
         m_state.data = nullptr;
