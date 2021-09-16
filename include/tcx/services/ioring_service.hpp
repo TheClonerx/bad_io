@@ -594,10 +594,10 @@ public:
     }
 
     template <typename E>
-    void poll(E &executor, bool should_block)
+    void poll(E &executor)
     {
         sigset_t sigmask;
-        int consumed = static_cast<int>(syscall(SYS_io_uring_enter, m_handle, m_to_submit, should_block, IORING_ENTER_GETEVENTS, &sigmask));
+        int consumed = static_cast<int>(syscall(SYS_io_uring_enter, m_handle, m_to_submit, 1 /*wait for the completion of at least one task*/, IORING_ENTER_GETEVENTS, &sigmask));
         if (consumed < 0)
             throw std::system_error(errno, std::system_category(), "io_uring_enter");
 
