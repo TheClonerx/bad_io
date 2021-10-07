@@ -1,5 +1,6 @@
-[build_requires]
-cmake/[>=2.16]
+[requires]
+liburing/2.0
 
 [generators]
-virtualenv
+cmake_paths
+cmake_find_package
