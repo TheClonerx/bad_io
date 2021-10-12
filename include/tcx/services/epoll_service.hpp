@@ -22,8 +22,7 @@ class epoll_service {
 public:
     using native_handle_type = tcx::native_handle_type;
 
-    template <typename E>
-    explicit epoll_service(E &)
+    epoll_service()
         : m_handle(epoll_create1(EPOLL_CLOEXEC))
     {
         if (m_handle < 0)
