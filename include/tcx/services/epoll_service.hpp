@@ -79,7 +79,7 @@ public:
     }
 
     template <typename E>
-    void poll(E &executor, bool should_block)
+    void poll(E &executor)
     {
         if (m_completions.empty())
             return;
@@ -95,7 +95,7 @@ public:
 
         sigset_t prev {};
         m_events.resize(m_completions.size());
-        int result = epoll_pwait(m_handle, m_events.data(), m_events.size(), 0 - should_block, &prev);
+        int result = epoll_pwait(m_handle, m_events.data(), m_events.size(), -1, &prev);
         if (result < 0)
             throw std::system_error(errno, std::system_category(), "epoll_pwait");
 
