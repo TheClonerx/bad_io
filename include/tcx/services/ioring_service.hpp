@@ -134,11 +134,11 @@ public:
 
     // epoll_wait(2)
     template <tcx::ioring_completion_handler F>
-    auto async_poll_remove(std::uint64_t entry_id, F &&f)
+    auto async_poll_remove(std::uint64_t operation_id, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_poll_remove(&op, nullptr); // this takes a pointer (which might not be 64 bits) as addr (__u64)
-        op.addr = entry_id; // set the entry_id directly
+        op.addr = operation_id; // set the operation_id directly
 
         return submit(op, std::forward<F>(f));
     }
