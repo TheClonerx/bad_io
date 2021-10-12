@@ -11,7 +11,7 @@ void async_read(E &executor, tcx::ioring_service &service, tcx::native_handle_ty
 {
     (void)executor;
 
-    service.async_read(0, fd, buf, len, [f = std::forward<F>(f)](std::int32_t result) mutable {
+    service.async_read(fd, buf, len, -1, [f = std::forward<F>(f)](std::int32_t result) mutable {
         if (result < 0)
             f(std::error_code { -result, std::system_category() }, static_cast<std::size_t>(0));
         else
