@@ -25,15 +25,8 @@ public:
     using native_handle_type = int;
     static constexpr native_handle_type invalid_handle = -1;
 
-    ioring_service()
-        : ioring_service(1024)
-    {
-    }
-
-    explicit ioring_service(std::uint32_t entries)
-        : m_uring(setup_rings(entries))
-    {
-    }
+    ioring_service();
+    explicit ioring_service(std::uint32_t entries);
 
     ioring_service(ioring_service const &other) = delete;
     ioring_service(ioring_service &&other) = delete;
@@ -418,62 +411,22 @@ public:
         return async_unlinkat(AT_FDCWD, pathname, 0, std::forward<F>(f));
     }
 
-    void poll()
-    {
-        // io_uring actually allows waiting with no pending operations, so you can submit in one thread and wait in another
-
-        int consumed = io_uring_submit_and_wait(&m_uring, 1);
-        if (consumed < 0)
-            throw std::system_error(-consumed, std::system_category(), "io_uring_submit_and_wait");
-
-        for (;;) {
-            io_uring_cqe *cqe = nullptr;
-            int err_nr = io_uring_peek_cqe(&m_uring, &cqe);
-            if (err_nr < 0 && err_nr != -EAGAIN)
-                throw std::system_error(-err_nr, std::system_category(), "io_uring_peek_cqe");
-
-            if (cqe == nullptr)
-                return;
-
-            auto const cqe_s = *cqe;
-            io_uring_cqe_seen(&m_uring, cqe);
-            complete(cqe_s);
-        }
-    }
+    void poll();
 
     std::size_t pending() const noexcept
     {
         return m_pending.load();
     }
 
-private:
-    void complete(io_uring_cqe const &cqe)
-    {
-        struct Completion {
-            void (*call)(Completion *self, std::int32_t res);
-        };
-
-        auto *p = reinterpret_cast<Completion *>(cqe.user_data);
-        m_pending.fetch_sub(1);
-        p->call(p, cqe.res);
-    }
-
-public:
     ~ioring_service()
     {
         io_uring_queue_exit(&m_uring);
     }
 
 private:
-    static io_uring setup_rings(std::uint32_t entries)
-    {
-        io_uring uring {};
-        io_uring_params params {};
-        int const err_nr = io_uring_queue_init_params(entries, &uring, &params);
-        if (err_nr < 0)
-            throw std::system_error(err_nr, std::system_category());
-        return uring;
-    }
+    void complete(io_uring_cqe const &cqe);
+
+    static io_uring setup_rings(std::uint32_t entries);
 
     template <typename F>
     auto submit(io_uring_sqe operation, F &&completion)

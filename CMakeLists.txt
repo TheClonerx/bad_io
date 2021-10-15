@@ -33,8 +33,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(event_loop)
 target_sources(event_loop PRIVATE src/execution_context.cpp)
-target_link_libraries(event_loop PUBLIC liburing::liburing)
 target_include_directories(event_loop PUBLIC include)
+
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    target_link_libraries(event_loop PUBLIC liburing::liburing)
+    target_sources(event_loop PRIVATE src/ioring_service.cpp)
+endif()
 
 add_executable(main)
 target_link_libraries(main PRIVATE event_loop)
