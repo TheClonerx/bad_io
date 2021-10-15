@@ -19,14 +19,14 @@ A mutex wrapped `std::queue` is indeed not the best solution, but it's preferabl
 # TODO
 - [X] Implement arguments for `tcx::function_view`
 - [X] Implement SBO for `tcx::unique_functiom`
-- ~~[ ] Implement allocator aware move operations for `tcx::unique_function`~~
-- ~~[ ] Make the executor fully allocator aware~~
+- [ ] ~~Implement allocator aware move operations for `tcx::unique_function`~~
+- [ ] ~~Make the executor fully allocator aware~~
 - [ ] Learn about how overlapping IO works on Windows
 - Implement following IO services:
     - [X] `tcx::epoll_service`
     - [ ] `tcx::poll_service`
     - [ ] `tcx::overlapped_service`
-    - [ ] and maybe `tcx::kqueue_service`
+    - [ ] `tcx::kqueue_service`
 - [ ] Implement `tcx::thread_service` (might be redundant with `tcx::synchronized_execution_context`)
 - [X] Implement `tcx::synchronized_execution_context`
 - [ ] How to run any coroutine inside the executors.
@@ -36,36 +36,29 @@ A mutex wrapped `std::queue` is indeed not the best solution, but it's preferabl
 # DOCUMENTATION
 ## `tcx::epoll_service`
 `#include <tcx/services/epoll_service.hpp>`
+<br/>Currently not thread safe.
 
 ### Type members
 #### `typename native_handle_type` = `int`
 
 ### Function members
-#### `explicit epoll_service(E &context)` (constructor)
+#### `epoll_service()` (constructor)
 Creates the epoll file descriptor.
 
 #### `epoll_service(epoll_service const&) = delete` (constructor)
-#### `epoll_service(epoll_service &&) noexcept` (constructor)
-Moves the epoll_service
+#### `epoll_service(epoll_service &&) = delete` (constructor)
+
+#### `epoll_service &operator=(epoll_service const&) = delete`
+#### `epoll_service &operator=(epoll_service &&) = delete`
 
 #### `~epoll_service()` (destructor)
 Closes the epoll file descriptor.
 
-#### `epoll_service &operator=(epoll_service const&) = delete`
-#### `epoll_service &operator=(epoll_service &&) noexcept`
-Moves the epoll_service.
-
 #### `native_handle_type native_handle() noexcept`
 Returns the native handle to the epoll instance.
 
-#### `void poll(E &executor, bool should_block)`
-Optionally waits for the completion of an operation if `should_block` is true, and then it posts the completions (if any) to `executor`.
-
-#### `void swap(epoll_service &other) noexcept`
-Swaps two `tcx::epoll_service`.
-
-#### `friend void swap(epoll_service &first, epoll_service &second) noexcept`
-Swaps two `tcx::epoll_service`.
+#### `void poll()`
+Waits for the completion of an operation, and then it executes the completions (if any).
 
 #### `void async_poll_add(int fd, std::uint32_t events, F &&f)`
 Adds an entry to the interest list of the epoll instance, similar to polling using `epoll(7)`, however, it always works in one shot mode.  
@@ -77,10 +70,10 @@ Removes the target file descriptor `fd` from the interest list of the epoll inst
 The associated poll request will complete with an error of `ECANCELED`.
 
 #
-#
 
 ## `tcx::ioring_service`
 `#include <tcx/services/ioring_service.hpp>`
+<br/>Thread safe (I think).
 
 ### Type members
 #### `typename native_handle_type` = `int`
@@ -94,23 +87,19 @@ Creates the io_uring's file descriptor and maps the rings using a default number
 Creates the io_uring's file descriptor and maps the rings. Up to `entries` can be submitted at the same time.
 
 #### `ioring_service(ioring_service const&) = delete` (constructor)
+#### `ioring_service(ioring_service &&) = delete` (constructor)
 
-#### `ioring_service(ioring_service &&) noexcept` (constructor)
-Moves the ioring_service.
+#### `ioring_service &operator=(ioring_service const&) = delete`
+#### `ioring_service &operator=(ioring_service &&) noexcept`
 
 #### `~ioring_service()` (destructor)
 Closes the io_uring's file descriptor and unmaps the rings.
 
-#### `ioring_service &operator=(ioring_service const&) = delete`
-
-#### `ioring_service &operator=(ioring_service &&) noexcept`
-Moves the ioring_service.
-
 #### `native_handle_type native_handle() noexcept`
 Returns the native handle to the io_uring instance.
 
-#### `void poll(E &executor)`
-Submits the operations to the io_uring instance, then it waits for the completion of an operation, and finally it posts the completions (if any) to `executor`.
+#### `void poll()`
+Submits the operations to the io_uring instance, then it waits for the completion of an operation, and finally it executes the completions (if any).
 
 #
 For the next `async_` functions, the following always hold true:
@@ -180,7 +169,6 @@ Attempt to cancel an operation. `operation_id` must be a number returned by one 
 The completion event result is zero if the operation was found, `-ENOENT` if not found, or `-EALREADY` if the operation was already attempted cancelled.
 
 #### `auto async_link_timeout(timespec64 const* timeout, bool absolute, F&& f)`
-_**This operation must be linked with another operation using the `IOSQE_IO_LINK` entry flag.**_  
 Link a timeout to an operation, the linked operation will be attempt cancelled if the timeout fires.
 The completion event result is `-ETIME` if the linked operation was attempt cancelled, or `-ECANCELLED` if the linked request completed before the timeout.
 
