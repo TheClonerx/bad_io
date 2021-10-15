@@ -232,6 +232,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // accept4(2)
     template <tcx::ioring_completion_handler F>
     auto async_accept(int fd, sockaddr *addr, socklen_t *addrlen, int flags, F &&f)
     {
@@ -270,6 +271,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // fallocate(2)
     template <tcx::ioring_completion_handler F>
     auto async_fallocate(int fd, int mode, off_t offset, off_t len, F &&f)
     {
@@ -279,6 +281,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // posix_fadvise(2)
     template <tcx::ioring_completion_handler F>
     auto async_fadvice(int fd, off_t offset, off_t len, int advice, F &&f)
     {
@@ -288,6 +291,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // madvice(2)
     template <tcx::ioring_completion_handler F>
     auto async_madvice(void *addr, std::size_t length, int advice, F &&f)
     {
@@ -297,6 +301,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // openat(2)
     template <tcx::ioring_completion_handler F>
     auto async_openat(int dir_fd, char const *pathname, int flags, mode_t mode, F &&f)
     {
@@ -306,14 +311,16 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // open(2)
     template <tcx::ioring_completion_handler F>
     auto async_open(char const *pathname, int flags, mode_t mode, F &&f)
     {
         return async_openat(AT_FDCWD, pathname, flags, mode, std::forward<F>(f));
     }
 
+    // openat2(2)
     template <tcx::ioring_completion_handler F>
-    auto async_openat2(int dir_fd, char const *pathname, open_how *how, std::size_t size, F &&f)
+    auto async_openat2(int dir_fd, char const *pathname, ::open_how *how, std::size_t size, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_openat2(&op, dir_fd, pathname, how);
@@ -322,6 +329,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // close(2)
     template <tcx::ioring_completion_handler F>
     auto async_close(int fd, F &&f)
     {
@@ -331,6 +339,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // statx(2)
     template <tcx::ioring_completion_handler F>
     auto async_statx(int dir_fd, char const *pathname, int flags, unsigned mask, struct ::statx *statxbuf, F &&f)
     {
@@ -340,6 +349,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // read(2) if `offset` is less than 0, pread(2) otherwise
     template <tcx::ioring_completion_handler F>
     auto async_read(int fd, void *buf, std::size_t len, off_t offset, F &&f)
     {
@@ -349,6 +359,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // write(2) if `offset` is less than 0, pwrite(2) otherwise
     template <tcx::ioring_completion_handler F>
     auto async_write(int fd, void const *buf, std::size_t len, off_t offset, F &&f)
     {
@@ -358,8 +369,9 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // splice(2) use -1 to signify null offsets
     template <tcx::ioring_completion_handler F>
-    auto async_splice(int fd_in, off64_t off_in, int fd_out, off64_t *off_out, std::size_t len, unsigned flags, F &&f)
+    auto async_splice(int fd_in, off64_t off_in, int fd_out, off64_t off_out, std::size_t len, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_splice(&op, fd_in, off_in, fd_out, fd_out, len, flags);
@@ -367,6 +379,7 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
+    // tee(2)
     template <tcx::ioring_completion_handler F>
     auto async_tee(int fd_in, int fd_out, std::size_t len, unsigned flags, F &&f)
     {
