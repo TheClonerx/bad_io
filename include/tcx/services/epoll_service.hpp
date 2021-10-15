@@ -8,7 +8,6 @@
 #include <vector>
 
 #include <sys/epoll.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 
 #include <tcx/native/handle.hpp>
@@ -30,19 +29,10 @@ public:
     }
 
     epoll_service(epoll_service const &) = delete;
-    epoll_service(epoll_service &&other) noexcept
-        : m_handle { std::exchange(other.m_handle, tcx::invalid_handle) }
-        , m_events(std::move(other.m_events))
-        , m_completions(std::move(other.m_completions))
-    {
-    }
+    epoll_service(epoll_service &&other) = delete;
 
     epoll_service &operator=(epoll_service const &) = delete;
-    epoll_service &operator=(epoll_service &&other) noexcept
-    {
-        swap(other);
-        return *this;
-    }
+    epoll_service &operator=(epoll_service &&other) = delete;
 
     native_handle_type native_handle() noexcept
     {
@@ -113,19 +103,6 @@ public:
             return completion.fd == -1 || !static_cast<bool>(completion.func);
         }),
             m_completions.end());
-    }
-
-    void swap(epoll_service &other) noexcept
-    {
-        using std::swap;
-        swap(m_handle, other.m_handle);
-        swap(m_events, other.m_events);
-        swap(m_completions, other.m_completions);
-    }
-
-    friend void swap(epoll_service &first, epoll_service &second) noexcept
-    {
-        first.swap(second);
     }
 
     ~epoll_service()
