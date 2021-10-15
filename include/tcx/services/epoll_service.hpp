@@ -67,8 +67,7 @@ public:
             it->error = ECANCELED;
     }
 
-    template <typename E>
-    void poll(E &executor)
+    void poll()
     {
         if (m_completions.empty())
             return;
@@ -76,10 +75,9 @@ public:
         for (auto &completion : m_completions) {
             if (!completion.error)
                 continue;
-            executor.post([completion = std::move(completion.func), error = completion.error]() mutable {
-                completion(std::move(error), 0);
-            });
             completion.fd = -1;
+            auto f = std::move(completion.func);
+            f(std::move(completion.error), 0);
         }
 
         sigset_t prev {};
@@ -93,16 +91,14 @@ public:
                 return completion.fd == fd;
             });
             if (it != m_completions.end()) {
-                executor.post([completion = std::move(it->func), events = m_events[i].events]() mutable {
-                    completion(0, std::move(events));
-                });
                 it->fd = -1;
+                auto f = std::move(it->func);
+                f(std::move(it->error), 0);
             }
         }
-        m_completions.erase(std::remove_if(m_completions.begin(), m_completions.end(), [](Completion const &completion) {
-            return completion.fd == -1 || !static_cast<bool>(completion.func);
-        }),
-            m_completions.end());
+        std::erase_if(m_completions, [](Completion const &completion) {
+            return completion.fd == -1;
+        });
     }
 
     ~epoll_service()
