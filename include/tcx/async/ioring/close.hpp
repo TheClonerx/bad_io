@@ -1,4 +1,3 @@
-
 #ifndef TCX_ASYNC_IORING_CLOSE_HPP
 
 #include <tcx/native/handle.hpp>
@@ -9,15 +8,18 @@ namespace tcx {
 template <typename E, typename F>
 void async_close(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, F &&f) requires(std::is_invocable_v<F, std::error_code>)
 {
-    (void)executor;
-
-    service.async_close(fd, [f = std::forward<F>(f)](std::int32_t result) mutable {
+    service.async_close(fd, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
         if (result < 0)
-            f(std::error_code { -result, std::system_category() });
+            executor.post([f = std::move(f), result]() mutable {
+                f(std::error_code { -result, std::system_category() });
+            });
         else
-            f(std::error_code {});
+            executor.post([f = std::move(f), result]() mutable {
+                f(std::error_code {});
+            });
     });
 }
+
 }
 
 #endif

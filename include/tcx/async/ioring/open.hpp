@@ -15,10 +15,6 @@ namespace tcx {
 template <typename E, typename F>
 void async_open(E &executor, tcx::ioring_service &service, char const *path, char const *mode, F &&f) requires(std::is_invocable_v<F, std::error_code, tcx::native_handle_type>)
 {
-    (void)executor;
-
-    int flags = 0;
-
     bool has_plus = false, has_read = false, has_write = false, has_append = false, has_cloexec = false, has_exclusive = false;
     for (auto *it = mode; *it && *it != ','; ++it) {
         switch (*it) {
@@ -48,17 +44,22 @@ void async_open(E &executor, tcx::ioring_service &service, char const *path, cha
     if (has_read + has_write + has_append != 1)
         throw std::invalid_argument("Invalid mode was provided");
 
+    int flags = 0;
     if (has_plus)
         flags |= (O_RDWR | 0) * has_read | (O_RDWR | O_CREAT | O_TRUNC) * has_write | (O_RDWR | O_CREAT | O_APPEND) * has_append;
     else
         flags |= (O_RDONLY | 0) * has_read | (O_WRONLY | O_CREAT | O_TRUNC) * has_write | (O_WRONLY | O_CREAT | O_APPEND) * has_append;
     flags |= O_CLOEXEC * has_cloexec | O_EXCL * has_exclusive;
 
-    service.async_open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, [f = std::forward<F>(f)](std::int32_t result) mutable -> decltype(auto) {
+    service.async_open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
         if (result < 0)
-            return f(std::error_code { -result, std::system_category() }, tcx::invalid_handle);
+            executor.post([f = std::move(f), result]() mutable {
+                f(std::error_code { -result, std::system_category() }, tcx::invalid_handle);
+            });
         else
-            return f(std::error_code {}, result);
+            executor.post([f = std::move(f), result]() mutable {
+                f(std::error_code {}, result);
+            });
     });
 }
 

@@ -1,5 +1,6 @@
 
 #include <cstdio>
+#include <exception>
 #include <iostream>
 
 #include <system_error>
@@ -15,7 +16,7 @@ int main()
 {
     tcx::unsynchronized_execution_context ctx;
     tcx::ioring_service io_service;
-    static_assert(tcx::is_service_v<tcx::ioring_service, tcx::unsynchronized_execution_context>);
+    static_assert(tcx::is_service_v<tcx::ioring_service>);
 
     char tmp_buf[1024] {};
 
@@ -28,13 +29,21 @@ int main()
                 throw std::system_error(ec);
             std::printf("%.*s\n", static_cast<int>(bytes_read), +tmp_buf);
 
-            tcx::async_close(ctx, io_service, fd, [](std::error_code ec) { 
+            tcx::async_close(ctx, io_service, fd, [](std::error_code ec) {
                 if (ec)
-            throw std::system_error(ec); });
+                    throw std::system_error(ec);
+            });
         });
     });
 
-    do {
-        io_service.poll(ctx);
-    } while (ctx.run());
+    for (;;) {
+        if (io_service.pending())
+            io_service.poll(); // this might also throw, but not from completions if you're using tcx::async_
+        try {
+            if (!ctx.run())
+                break;
+        } catch (std::exception const &e) {
+            std::fprintf(stderr, "error: %s\n", e.what());
+        }
+    }
 }

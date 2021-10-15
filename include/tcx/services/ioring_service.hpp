@@ -2,15 +2,15 @@
 #define TCX_SERVICES_IORING_SERVICE_HPP
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
+#include <stdexcept>
 #include <system_error>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <fcntl.h> // only for AT_FDCWD
-// #include <linux/time_types.h>
-// #include <sys/types.h>
 
 #include <liburing.h>
 
@@ -45,9 +45,6 @@ public:
             std::exchange(other.m_uring.features, 0),
             {} /*padding*/
         }
-        , m_last_id { std::exchange(other.m_last_id, 0) }
-        , m_completions(std::move(other.m_completions))
-
     {
     }
 
@@ -68,8 +65,6 @@ public:
             std::exchange(other.m_uring.features, 0),
             {} /*padding*/
         };
-        m_last_id = std::exchange(other.m_last_id, 0);
-        m_completions = std::move(other.m_completions);
         return *this;
     }
 
@@ -451,41 +446,44 @@ public:
         return async_unlinkat(AT_FDCWD, pathname, 0, std::forward<F>(f));
     }
 
-    template <typename E>
-    void poll(E &executor)
+    void poll()
     {
-        int consumed = io_uring_submit_and_wait(&m_uring, not m_completions.empty());
+        // io_uring actually allows waiting with no pending operations, so you can submit in one thread and wait in another
+
+        int consumed = io_uring_submit_and_wait(&m_uring, 1);
         if (consumed < 0)
-            throw std::system_error(errno, std::system_category(), "io_uring_submit_and_wait");
+            throw std::system_error(-consumed, std::system_category(), "io_uring_submit_and_wait");
 
-        // std::vector<io_uring_cqe*> cqes(consumed);
-        io_uring_cqe *cqes[16];
-        for (unsigned count = 0; (count = io_uring_peek_batch_cqe(&m_uring, std::data(cqes), std::size(cqes)));) {
-            for (std::size_t i = 0; i < count; ++i) {
-                complete(executor, cqes[i]);
-                io_uring_cqe_seen(&m_uring, cqes[i]);
-            }
+        for (;;) {
+            io_uring_cqe *cqe = nullptr;
+            int err_nr = io_uring_peek_cqe(&m_uring, &cqe);
+            if (err_nr < 0 && err_nr != -EAGAIN)
+                throw std::system_error(-err_nr, std::system_category(), "io_uring_peek_cqe");
+
+            if (cqe == nullptr)
+                return;
+
+            auto const cqe_s = *cqe;
+            io_uring_cqe_seen(&m_uring, cqe);
+            complete(cqe_s);
         }
+    }
 
-        m_completions.erase(std::remove_if(m_completions.begin(), m_completions.end(), [](auto const &completion) {
-            return completion.first == 0 || !static_cast<bool>(completion.second);
-        }),
-            m_completions.end());
+    std::size_t pending() const noexcept
+    {
+        return m_pending.load();
     }
 
 private:
-    template <typename E>
-    void complete(E &executor, io_uring_cqe *cqe)
+    void complete(io_uring_cqe const &cqe)
     {
-        auto it = std::lower_bound(m_completions.begin(), m_completions.end(), cqe->user_data, [](auto const &completion, std::uint64_t id) {
-            return completion.first < id;
-        });
-        if (it != m_completions.end() && it->first == cqe->user_data) {
-            executor.post([completion = std::move(it->second), result = cqe->res]() mutable {
-                completion(static_cast<std::int32_t>(result));
-            });
-            it->first = 0;
-        }
+        struct Completion {
+            void (*call)(Completion *self, std::int32_t res);
+        };
+
+        auto *p = reinterpret_cast<Completion *>(cqe.user_data);
+        m_pending.fetch_sub(1);
+        p->call(p, cqe.res);
     }
 
 public:
@@ -508,21 +506,40 @@ private:
     template <typename F>
     auto submit(io_uring_sqe operation, F &&completion)
     {
-        auto *sqe = io_uring_get_sqe(&m_uring);
+        struct Completion {
+            void (*call)(Completion *self, std::int32_t res);
+            F functor;
+        };
 
-        operation.user_data = ++m_last_id;
-        *sqe = operation;
+        auto *p = new Completion {
+            .call = +[](Completion *self, std::int32_t res) {
+                try {
+                    self->functor(res);
+                } catch (...) {
+                    delete self;
+                    throw;
+                }
+                delete self;
+            },
+            .functor = std::forward<F>(completion)
+        };
 
-        m_completions.emplace_back(operation.user_data, std::forward<F>(completion));
+        if (auto *sqe = io_uring_get_sqe(&m_uring)) {
 
-        return operation.user_data;
+            operation.user_data = reinterpret_cast<std::uintptr_t>(p);
+            *sqe = operation;
+            m_pending.fetch_add(1);
+
+            return operation.user_data;
+        } else {
+            delete p;
+            throw std::runtime_error("io_uring is full");
+        }
     }
 
 private:
     io_uring m_uring { {}, {}, {}, /*fd*/ -1, {}, {} };
-    std::size_t m_last_id {};
-
-    std::vector<std::pair<std::uint64_t, tcx::unique_function<void(std::int32_t)>>> m_completions;
+    std::atomic_size_t m_pending;
 };
 }
 

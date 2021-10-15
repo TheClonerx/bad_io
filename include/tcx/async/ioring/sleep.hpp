@@ -9,8 +9,6 @@ namespace tcx {
 template <typename E, typename F, typename Rep, typename Ratio>
 void async_sleep_for(E &executor, tcx::ioring_service &service, std::chrono::duration<Rep, Ratio> duration, F &&f) requires std::is_invocable_v<F, std::error_code>
 {
-    (void)executor;
-
     using sec_t = decltype(std::declval<__kernel_timespec>().tv_sec);
     using nsec_t = decltype(std::declval<__kernel_timespec>().tv_nsec);
 
@@ -19,11 +17,15 @@ void async_sleep_for(E &executor, tcx::ioring_service &service, std::chrono::dur
 
     __kernel_timespec const spec { secs.count(), nsecs.count() };
 
-    service.async_timeout(&spec, false, [f = std::forward<F>(f)](std::int32_t result) {
-        if (result < 0 && result != -ETIME)
-            f(std::error_code { -result, std::system_category() });
+    service.async_timeout(&spec, false, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
+        if (result < 0)
+            executor.post([f = std::move(f), result]() mutable {
+                f(std::error_code { -result, std::system_category() });
+            });
         else
-            f(std::error_code {});
+            executor.post([f = std::move(f), result]() mutable {
+                f(std::error_code {});
+            });
     });
 }
 
@@ -38,11 +40,15 @@ void async_timeout_until(E &executor, tcx::ioring_service &service, std::chrono:
         auto const nsecs = std::chrono::duration_cast<std::chrono::duration<nsec_t, std::nano>>(time.time_since_epoch() - secs);
         __kernel_timespec const spec { secs.count(), nsecs.count() };
 
-        service.async_timeout(0, &spec, true, [f = std::forward<F>(f)](std::int32_t result) {
-            if (result < 0 && result != -ETIME)
-                f(std::error_code { -result, std::system_category() });
+        service.async_timeout(0, &spec, true, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
+            if (result < 0)
+                executor.post([f = std::move(f), result]() mutable {
+                    f(std::error_code { -result, std::system_category() });
+                });
             else
-                f(std::error_code {});
+                executor.post([f = std::move(f), result]() mutable {
+                    f(std::error_code {});
+                });
         });
     } else {
         auto const duration = time - Clock::now();
