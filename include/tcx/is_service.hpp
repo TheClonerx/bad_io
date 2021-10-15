@@ -13,7 +13,7 @@ namespace impl {
 }
 
 template <typename S>
-struct is_service : std::bool_constant<std::is_destructible_v<S> && std::is_move_constructible_v<S> && std::is_move_assignable_v<S> && tcx::impl::has_poll<S>> {
+struct is_service : std::bool_constant<std::is_destructible_v<S> && tcx::impl::has_poll<S>> {
 };
 
 template <typename S>

@@ -36,39 +36,11 @@ public:
     }
 
     ioring_service(ioring_service const &other) = delete;
-    ioring_service(ioring_service &&other) noexcept
-        : m_uring {
-            std::exchange(other.m_uring.sq, io_uring_sq {}),
-            std::exchange(other.m_uring.cq, io_uring_cq {}),
-            std::exchange(other.m_uring.flags, 0),
-            std::exchange(other.m_uring.ring_fd, -1),
-            std::exchange(other.m_uring.features, 0),
-            {} /*padding*/
-        }
-    {
-    }
+    ioring_service(ioring_service &&other) = delete;
 
     ioring_service &operator=(ioring_service const &other) = delete;
-    ioring_service &operator=(ioring_service &&other) noexcept
-    {
-        if (this == &other)
-            return *this;
+    ioring_service &operator=(ioring_service &&other) = delete;
 
-        if (native_handle() != invalid_handle)
-            io_uring_queue_exit(&m_uring);
-
-        m_uring = io_uring {
-            std::exchange(other.m_uring.sq, io_uring_sq {}),
-            std::exchange(other.m_uring.cq, io_uring_cq {}),
-            std::exchange(other.m_uring.flags, 0),
-            std::exchange(other.m_uring.ring_fd, -1),
-            std::exchange(other.m_uring.features, 0),
-            {} /*padding*/
-        };
-        return *this;
-    }
-
-public:
     native_handle_type native_handle() noexcept
     {
         return m_uring.ring_fd;
