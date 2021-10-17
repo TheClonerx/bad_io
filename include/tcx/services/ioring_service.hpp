@@ -420,6 +420,7 @@ public:
 
     ~ioring_service()
     {
+        // this will leak pending completions!
         io_uring_queue_exit(&m_uring);
     }
 
