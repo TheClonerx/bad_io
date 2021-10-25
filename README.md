@@ -16,6 +16,19 @@ Now that `std::move_only_function` was added to C++23 im going to try aiming for
 `tcx::synchronized_execution_context` is also just a function queue, but wrapped in a mutex. It allows calling `run()` and `post()` from multiple threads, allowing for multiple completions to be executed and posted in pararllel.
 A mutex wrapped `std::queue` is indeed not the best solution, but it's preferable that to a UB filled concurrent queue manually written by me. (maybe I should use [cameron314's concurrentqueue](https://github.com/cameron314/concurrentqueue)?)
 
+Services should work with arbitrary executors. For example:
+```cpp
+asio::system_executor ctx;
+tcx::ioring_service io_service;
+
+tcx::async_open(ctx, io_service, "/dev/null", "rb", [](std::error_code ec, int fd) {
+    if (ec)
+        throw std::system_error(ec);
+    ::close(fd);
+});
+```
+this will post the completion to an [asio::system_executor](https://think-async.com/Asio/asio-1.20.0/doc/asio/reference/system_executor.html), and the lambda will be executed in an arbitrary thread.
+
 # TODO
 - [X] Implement arguments for `tcx::function_view`
 - [X] Implement SBO for `tcx::unique_functiom`
