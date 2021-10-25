@@ -13,7 +13,22 @@
 namespace tcx {
 
 template <typename E, typename F>
-void async_open(E &executor, tcx::ioring_service &service, char const *path, char const *mode, F &&f) requires(std::is_invocable_v<F, std::error_code, tcx::native_handle_type>)
+void async_open(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f) requires(std::is_invocable_v<F, std::error_code, tcx::native_handle_type>)
+{
+    service.async_open(path, flags, mode, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
+        if (result < 0)
+            executor.post([f = std::move(f), result]() mutable {
+                f(std::error_code { -result, std::system_category() }, tcx::invalid_handle);
+            });
+        else
+            executor.post([f = std::move(f), result]() mutable {
+                f(std::error_code {}, result);
+            });
+    });
+}
+
+template <typename E, typename F>
+auto async_open(E &executor, tcx::ioring_service &service, char const *path, char const *mode, F &&f) requires(std::is_invocable_v<F, std::error_code, tcx::native_handle_type>)
 {
     bool has_plus = false, has_read = false, has_write = false, has_append = false, has_cloexec = false, has_exclusive = false;
     for (auto *it = mode; *it && *it != ','; ++it) {
@@ -51,16 +66,7 @@ void async_open(E &executor, tcx::ioring_service &service, char const *path, cha
         flags |= (O_RDONLY | 0) * has_read | (O_WRONLY | O_CREAT | O_TRUNC) * has_write | (O_WRONLY | O_CREAT | O_APPEND) * has_append;
     flags |= O_CLOEXEC * has_cloexec | O_EXCL * has_exclusive;
 
-    service.async_open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
-        if (result < 0)
-            executor.post([f = std::move(f), result]() mutable {
-                f(std::error_code { -result, std::system_category() }, tcx::invalid_handle);
-            });
-        else
-            executor.post([f = std::move(f), result]() mutable {
-                f(std::error_code {}, result);
-            });
-    });
+    return async_open(executor, service, path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, std::forward<F>(f));
 }
 
 }
