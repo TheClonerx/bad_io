@@ -16,14 +16,12 @@ template <typename E, typename F>
 void async_open(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f) requires(std::is_invocable_v<F, std::error_code, tcx::native_handle_type>)
 {
     service.async_open(path, flags, mode, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
-        if (result < 0)
-            executor.post([f = std::move(f), result]() mutable {
+        executor.post([f = std::move(f), result]() mutable {
+            if (result < 0)
                 f(std::error_code { -result, std::system_category() }, tcx::invalid_handle);
-            });
-        else
-            executor.post([f = std::move(f), result]() mutable {
+            else
                 f(std::error_code {}, result);
-            });
+        });
     });
 }
 

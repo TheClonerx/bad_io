@@ -18,14 +18,12 @@ void async_sleep_for(E &executor, tcx::ioring_service &service, std::chrono::dur
     __kernel_timespec const spec { secs.count(), nsecs.count() };
 
     service.async_timeout(&spec, false, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
-        if (result < 0)
-            executor.post([f = std::move(f), result]() mutable {
+        executor.post([f = std::move(f), result]() mutable {
+            if (result < 0)
                 f(std::error_code { -result, std::system_category() });
-            });
-        else
-            executor.post([f = std::move(f), result]() mutable {
+            else
                 f(std::error_code {});
-            });
+        });
     });
 }
 
@@ -41,14 +39,12 @@ void async_timeout_until(E &executor, tcx::ioring_service &service, std::chrono:
         __kernel_timespec const spec { secs.count(), nsecs.count() };
 
         service.async_timeout(0, &spec, true, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
-            if (result < 0)
-                executor.post([f = std::move(f), result]() mutable {
+            executor.post([f = std::move(f), result]() mutable {
+                if (result < 0)
                     f(std::error_code { -result, std::system_category() });
-                });
-            else
-                executor.post([f = std::move(f), result]() mutable {
+                else
                     f(std::error_code {});
-                });
+            });
         });
     } else {
         auto const duration = time - Clock::now();
