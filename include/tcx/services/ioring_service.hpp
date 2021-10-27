@@ -418,11 +418,7 @@ public:
         return m_pending.load();
     }
 
-    ~ioring_service()
-    {
-        // this will leak pending completions!
-        io_uring_queue_exit(&m_uring);
-    }
+    ~ioring_service();
 
 private:
     void complete(io_uring_cqe const &cqe);
@@ -450,17 +446,21 @@ private:
             .functor = std::forward<F>(completion)
         };
 
-        if (auto *sqe = io_uring_get_sqe(&m_uring)) {
-
-            operation.user_data = reinterpret_cast<std::uintptr_t>(p);
-            *sqe = operation;
-            m_pending.fetch_add(1);
-
-            return operation.user_data;
-        } else {
-            delete p;
-            throw std::runtime_error("io_uring is full");
+        auto *sqe = io_uring_get_sqe(&m_uring);
+        if (!sqe) {
+            io_uring_submit(&m_uring);
+            if (!(sqe = io_uring_get_sqe(&m_uring))) {
+                delete p;
+                throw std::runtime_error("io_uring is full");
+            }
         }
+
+        m_pending.fetch_add(1);
+
+        operation.user_data = reinterpret_cast<std::uintptr_t>(p);
+        *sqe = operation;
+
+        return operation.user_data;
     }
 
 private:

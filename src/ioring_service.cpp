@@ -1,5 +1,7 @@
 #include <tcx/services/ioring_service.hpp>
 
+#include <cassert>
+
 tcx::ioring_service::ioring_service(std::uint32_t entries)
     : m_uring(setup_rings(entries))
 {
@@ -8,6 +10,13 @@ tcx::ioring_service::ioring_service(std::uint32_t entries)
 tcx::ioring_service::ioring_service()
     : ioring_service(1024)
 {
+}
+
+tcx::ioring_service::~ioring_service()
+{
+    // this will leak pending completions!
+    assert(!pending() && "tried to destroy an io_uring instance with pending operations");
+    io_uring_queue_exit(&m_uring);
 }
 
 io_uring tcx::ioring_service::setup_rings(std::uint32_t entries)
