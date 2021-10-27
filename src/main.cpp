@@ -37,13 +37,23 @@ int main()
     });
 
     for (;;) {
-        if (io_service.pending())
-            io_service.poll(); // this might also throw, but not from completions if you're using tcx::async_
-        try {
-            if (!ctx.run())
-                break;
-        } catch (std::exception const &e) {
-            std::fprintf(stderr, "error: %s\n", e.what());
-        }
+        bool const io_pending = io_service.pending();
+        bool const tasks_pending = ctx.pending();
+
+        if (!(io_pending || tasks_pending))
+            break;
+
+        if (io_pending)
+            try {
+                io_service.poll();
+            } catch (std::exception const &e) {
+                std::fprintf(stderr, "error: %s\n", e.what());
+            }
+        if (tasks_pending)
+            try {
+                ctx.run();
+            } catch (std::exception const &e) {
+                std::fprintf(stderr, "error: %s\n", e.what());
+            }
     }
 }
