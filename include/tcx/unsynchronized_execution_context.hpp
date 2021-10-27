@@ -26,6 +26,10 @@ public:
     }
 
     std::size_t run();
+    std::size_t pending() const
+    {
+        return m_function_queue.size();
+    }
 
     ~unsynchronized_execution_context() = default;
 
