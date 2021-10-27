@@ -4,7 +4,7 @@
 This is an attempt to creating an async, event based, IO.
 Highly inspired in asio.
 
-Currently I'm quite happy how `tcx::ioring_service` ended up being, however its not perfect; and it's not thread safe.
+Currently I'm quite happy how `tcx::ioring_service` ended up being, and as of now, it should be thread safe.
 
 I wrote `tcx::function_view` thinking it would be useful for this project. Currently it's not, but I'm not going to let my efford go to waste.
 
@@ -21,10 +21,10 @@ Services should work with arbitrary executors. For example:
 asio::system_executor ctx;
 tcx::ioring_service io_service;
 
-tcx::async_open(ctx, io_service, "/dev/null", "rb", [](std::error_code ec, int fd) {
+tcx::async_open(ctx, io_service, "/dev/null", "rb", [&ctx, &io_service](std::error_code ec, int fd) {
     if (ec)
         throw std::system_error(ec);
-    ::close(fd);
+    tcx::async_close(ctx. io_service, fd, tcx::detached);
 });
 ```
 this will post the completion to an [asio::system_executor](https://think-async.com/Asio/asio-1.20.0/doc/asio/reference/system_executor.html), and the lambda will be executed in an arbitrary thread.
