@@ -40,7 +40,7 @@ public:
     }
 
     template <typename F>
-    explicit unique_function(F &&f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) requires(std::is_invocable_r_v<R, F, Args...> &&std::is_move_constructible_v<F>)
+    explicit unique_function(F &&f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) requires(std::is_invocable_r_v<R, F, Args...>)
     {
         if constexpr (std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
             m_state.data = reinterpret_cast<void *>(static_cast<result_type (*)(Args...)>(f));
