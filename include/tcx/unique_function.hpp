@@ -34,6 +34,10 @@ private:
 
 public:
     unique_function() noexcept = default;
+    unique_function(std::nullptr_t) noexcept
+        : unique_function()
+    {
+    }
 
     template <typename F>
     explicit unique_function(F &&f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) requires(std::is_invocable_r_v<R, F, Args...> &&std::is_move_constructible_v<F>)
