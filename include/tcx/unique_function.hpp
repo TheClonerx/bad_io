@@ -74,7 +74,7 @@ public:
                     return (*f)(std::forward<Args>(args)...);
             };
         } else {
-            *this = unique_function(std::in_place_type<F>, std::forward<F>(f));
+            new (this) unique_function(std::in_place_type<F>, std::forward<F>(f));
         }
     }
 
