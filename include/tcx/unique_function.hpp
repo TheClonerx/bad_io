@@ -160,9 +160,9 @@ public:
         return *this;
     }
 
-    result_type operator()(Args &&...args)
+    result_type operator()(Args... args)
     {
-        return (*m_state.call)(this, std::forward<Args &&>(args)...);
+        return (*m_state.call)(this, std::forward<Args>(args)...);
     }
 
     explicit operator bool() const noexcept
