@@ -7,6 +7,16 @@
 
 namespace tcx {
 
+namespace impl {
+    template <typename T>
+    struct is_reference_wrapper : std::bool_constant<false> {
+    };
+
+    template <typename T>
+    struct is_reference_wrapper<std::reference_wrapper<T>> : std::bool_constant<true> {
+    };
+}
+
 template <typename F>
 class unique_function;
 
@@ -42,7 +52,16 @@ public:
     template <typename F>
     explicit unique_function(F &&f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) requires(std::is_invocable_r_v<R, F, Args...>)
     {
-        if constexpr (std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
+        if constexpr (tcx::impl::is_reference_wrapper<std::remove_cvref_t<F>>::value) {
+            m_state.data = reinterpret_cast<void *>(&f.get());
+            m_state.call = +[](unique_function *self, Args &&...args) -> result_type {
+                auto &ref = *reinterpret_cast<typename F::type *>(self->m_state.data);
+                if constexpr (std::is_void_v<result_type>)
+                    (void)std::invoke(ref, std::forward<Args>(args)...);
+                else
+                    return std::invoke(ref, std::forward<Args>(args)...);
+            };
+        } else if constexpr (std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
             m_state.data = reinterpret_cast<void *>(static_cast<result_type (*)(Args...)>(f));
             m_state.call = +[](unique_function *self, Args &&...args) -> result_type {
                 auto *f = reinterpret_cast<result_type (*)(Args...)>(self->m_state.data);
