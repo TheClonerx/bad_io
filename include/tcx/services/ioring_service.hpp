@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <system_error>
 #include <type_traits>
@@ -433,7 +434,7 @@ private:
             F functor;
         };
 
-        auto *p = new Completion {
+        auto p = std::make_unique<Completion>(Completion {
             .call = +[](Completion *self, std::int32_t res) {
                 try {
                     self->functor(res);
@@ -443,21 +444,21 @@ private:
                 }
                 delete self;
             },
-            .functor = std::forward<F>(completion)
-        };
+            .functor = std::forward<F>(completion) });
 
         auto *sqe = io_uring_get_sqe(&m_uring);
         if (!sqe) {
-            io_uring_submit(&m_uring);
+            if (int res = io_uring_submit(&m_uring); res < 0)
+                throw std::system_error(-res, std::system_category(), "io_uring_submit");
+
             if (!(sqe = io_uring_get_sqe(&m_uring))) {
-                delete p;
                 throw std::runtime_error("io_uring is full");
             }
         }
 
         m_pending.fetch_add(1);
 
-        operation.user_data = reinterpret_cast<std::uintptr_t>(p);
+        operation.user_data = reinterpret_cast<std::uintptr_t>(p.release());
         *sqe = operation;
 
         return operation.user_data;
