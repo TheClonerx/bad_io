@@ -1,6 +1,9 @@
 #ifndef TCX_UNIQUE_FUNCTION_HPP
 #define TCX_UNIQUE_FUNCTION_HPP
 
+#include <concepts>
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -71,64 +74,76 @@ public:
                     return (*f)(std::forward<Args>(args)...);
             };
         } else {
-            void *p = m_storage;
-            size_t space = sizeof(m_storage);
-            p = std::align(alignof(F), sizeof(F), p, space);
-            if (p) { // we can store the object inline at p
-                std::construct_at(reinterpret_cast<std::remove_cvref_t<F> *>(p), std::forward<F>(f));
-                func_call_t call = +[](unique_function *self, Args &&...args) -> result_type {
-                    auto *f = reinterpret_cast<std::remove_cvref_t<F> *>(self->m_state.data);
-                    if constexpr (std::is_void_v<result_type>)
-                        return static_cast<result_type>((*f)(std::forward<Args>(args)...));
-                    else
-                        return (*f)(std::forward<Args>(args)...);
+            *this = unique_function(std::in_place_type<F>, std::forward<F>(f));
+        }
+    }
+
+    template <typename T, typename... CArgs>
+    requires std::invocable<T, Args...>
+    unique_function(std::in_place_type_t<T>, CArgs &&...args)
+    {
+        bool store_inline = std::is_move_constructible_v<T> && std::is_nothrow_move_constructible_v<T>;
+        void *pointer = m_storage;
+        if (store_inline) {
+            size_t size = sizeof(m_storage);
+            if (std::align(alignof(T), sizeof(T), pointer, size) == nullptr)
+                store_inline = false;
+        }
+
+        if (store_inline) {
+            std::construct_at(reinterpret_cast<std::remove_cvref_t<T> *>(pointer), std::forward<CArgs>(args)...);
+            func_call_t call = +[](unique_function *self, Args &&...args) -> result_type {
+                auto &f = *reinterpret_cast<std::remove_cvref_t<T> *>(self->m_state.data);
+                if constexpr (std::is_void_v<result_type>)
+                    (void)std::invoke(f, std::forward<Args>(args)...);
+                else
+                    return std::invoke(f, std::forward<Args>(args)...);
+            };
+
+            static auto const table = []() {
+                virtual_table result {};
+                result.destroy = +[](void *data) -> void {
+                    auto p = reinterpret_cast<std::remove_cvref_t<T> *>(data);
+                    std::destroy_at(p);
                 };
 
-                static auto const table = []() {
-                    virtual_table result {};
-                    result.destroy = +[](void *data) -> void {
-                        auto p = reinterpret_cast<std::remove_cvref_t<F> *>(data);
-                        std::destroy_at(p);
-                    };
-
-                    result.move_construct = +[](void *lhs, void *rhs) {
-                        auto *second = reinterpret_cast<std::remove_cvref_t<F> *>(rhs);
-                        new (lhs) std::remove_cvref_t<F>(std::move(*second));
-                    };
-                    return result;
-                }();
-                m_state.data = p;
-                m_state.call = call;
-                m_state.vtable = &table;
-
-            } else {
-                auto *data = new std::remove_cvref_t<F>(std::forward<F>(f));
-
-                func_call_t call = +[](unique_function *self, Args &&...args) -> result_type {
-                    auto *f = reinterpret_cast<std::remove_cvref_t<F> *>(std::to_address(self->m_state.data));
-                    if constexpr (std::is_void_v<result_type>)
-                        return static_cast<result_type>((*f)(std::forward<Args>(args)...));
-                    else
-                        return (*f)(std::forward<Args>(args)...);
+                result.move_construct = +[](void *lhs, void *rhs) {
+                    auto *second = reinterpret_cast<std::remove_cvref_t<T> *>(rhs);
+                    new (lhs) std::remove_cvref_t<T>(std::move(*second));
                 };
-                static auto const table = []() {
-                    virtual_table result;
-                    result.destroy = +[](void *data) -> void {
-                        auto *obj = reinterpret_cast<std::remove_cvref_t<F> *>(data);
-                        delete obj;
-                    };
+                return result;
+            }();
+            m_state.data = pointer;
+            m_state.call = call;
+            m_state.vtable = &table;
+        } else {
+            auto *data = new std::remove_cvref_t<T>(std::forward<CArgs>(args)...);
 
-                    result.move_construct = +[](void *lhs, void *rhs) {
-                        auto *second = reinterpret_cast<std::remove_cvref_t<F> *>(rhs);
-                        new (lhs) std::remove_cvref_t<F>(std::move(*second));
-                    };
+            func_call_t call = +[](unique_function *self, Args &&...args) -> result_type {
+                auto &f = *reinterpret_cast<std::remove_cvref_t<T> *>(self->m_state.data);
+                if constexpr (std::is_void_v<result_type>)
+                    (void)std::invoke(f, std::forward<Args>(args)...);
+                else
+                    return std::invoke(f, std::forward<Args>(args)...);
+            };
 
-                    return result;
-                }();
-                m_state.data = reinterpret_cast<void *>(data);
-                m_state.call = call;
-                m_state.vtable = &table;
-            }
+            static auto const table = []() {
+                virtual_table result;
+                result.destroy = +[](void *data) -> void {
+                    auto *obj = reinterpret_cast<std::remove_cvref_t<T> *>(data);
+                    delete obj;
+                };
+
+                result.move_construct = +[](void *lhs, void *rhs) {
+                    auto *second = reinterpret_cast<std::remove_cvref_t<T> *>(rhs);
+                    new (lhs) std::remove_cvref_t<T>(std::move(*second));
+                };
+
+                return result;
+            }();
+            m_state.data = reinterpret_cast<void *>(data);
+            m_state.call = call;
+            m_state.vtable = &table;
         }
     }
 
