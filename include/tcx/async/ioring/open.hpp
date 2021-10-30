@@ -8,43 +8,40 @@
 #include <fcntl.h>
 
 #include <tcx/async/concepts.hpp>
+#include <tcx/async/wrap_op.hpp>
 #include <tcx/native/handle.hpp>
 #include <tcx/services/ioring_service.hpp>
 
 namespace tcx {
 
 namespace impl {
-    template <typename E, typename F>
-    void async_open(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
-    {
-        service.async_open(path, flags, mode, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
-            executor.post([f = std::move(f), result]() mutable {
-                if (result < 0)
-                    f(std::error_code { -result, std::system_category() }, tcx::invalid_handle);
-                else
-                    f(std::error_code {}, result);
+    struct ioring_open_operation {
+        using result_type = tcx::native_handle_type;
+
+        template <typename E, typename F>
+        static void call(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
+        {
+            service.async_open(path, flags, mode, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
+                executor.post([f = std::move(f), result]() mutable {
+                    if (result < 0)
+                        f(std::error_code { -result, std::system_category() }, tcx::invalid_handle);
+                    else
+                        f(std::error_code {}, result);
+                });
             });
-        });
-    }
+        }
+    };
 }
 
 template <typename E, typename F>
-requires tcx::completion_handler<F, tcx::native_handle_type>
+requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
 auto async_open(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
 {
-    if constexpr (tcx::impl::has_async_transform_t<F, tcx::native_handle_type>::value) {
-        return async_open(executor, service, path, flags, mode, f.template async_transform<tcx::native_handle_type>());
-    } else if constexpr (tcx::impl::has_async_result<F>) {
-        auto result = f.async_result();
-        impl::async_open(executor, service, path, flags, mode, std::forward<F>(f));
-        return result;
-    } else {
-        impl::async_open(executor, service, path, flags, mode, std::forward<F>(f));
-    }
+    return tcx::impl::wrap_op<tcx::impl::ioring_open_operation>::call(executor, service, std::forward<F>(f), path, flags, mode);
 }
 
 template <typename E, typename F>
-requires tcx::completion_handler<F, tcx::native_handle_type>
+requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
 auto async_open(E &executor, tcx::ioring_service &service, char const *path, char const *mode, F &&f)
 {
     bool has_plus = false, has_read = false, has_write = false, has_append = false, has_cloexec = false, has_exclusive = false;

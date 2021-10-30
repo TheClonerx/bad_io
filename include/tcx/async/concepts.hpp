@@ -4,6 +4,7 @@
 #include <concepts>
 #include <system_error>
 #include <type_traits>
+#include <variant>
 
 namespace tcx {
 
@@ -34,11 +35,11 @@ namespace impl {
     };
 
     template <typename F, typename T>
-    struct completion_handler_t : std::bool_constant<impl::has_async_transform_t<F, T>::value || std::invocable<F, std::error_code, T>> {
+    struct completion_handler_t : std::bool_constant<impl::has_async_transform_t<F, T>::value || std::invocable<F, std::error_code, T> || std::invocable<F, std::variant<std::error_code, T>>> {
     };
 
     template <typename F>
-    struct completion_handler_t<F, void> : std::bool_constant<impl::has_async_transform_t<F, void>::value || std::invocable<F, std::error_code>> {
+    struct completion_handler_t<F, void> : std::bool_constant<impl::has_async_transform_t<F, void>::value || std::invocable<F, std::error_code> || std::invocable<F, std::variant<std::error_code, std::monostate>>> {
     };
 
 }
