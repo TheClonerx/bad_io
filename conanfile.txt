@@ -1,5 +1,5 @@
 [requires]
-liburing/2.0
+liburing/2.1
 
 [generators]
 cmake_paths
