@@ -23,6 +23,7 @@ io_uring tcx::ioring_service::setup_rings(std::uint32_t entries)
 {
     io_uring uring {};
     io_uring_params params {};
+    params.flags = IORING_SETUP_CLAMP;
     int const err_nr = io_uring_queue_init_params(entries, &uring, &params);
     if (err_nr < 0)
         throw std::system_error(-err_nr, std::system_category());
