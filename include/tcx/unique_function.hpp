@@ -74,7 +74,7 @@ public:
                     return std::invoke(pfn, std::forward<Args>(args)...);
             };
         } else {
-            new (this) unique_function(std::in_place_type<F>, std::forward<F>(f));
+            std::construct_at(this, std::in_place_type<F>, std::forward<F>(f));
         }
     }
 
@@ -107,8 +107,9 @@ public:
                 };
 
                 result.move_construct = +[](void *lhs, void *rhs) {
+                    auto *first = reinterpret_cast<std::remove_cvref_t<T> *>(lhs);
                     auto *second = reinterpret_cast<std::remove_cvref_t<T> *>(rhs);
-                    new (lhs) std::remove_cvref_t<T>(std::move(*second));
+                    std::construct_at(first, std::move(*second));
                 };
                 return result;
             }();
@@ -116,7 +117,7 @@ public:
             m_state.call = call;
             m_state.vtable = &table;
         } else {
-            auto *data = new std::remove_cvref_t<T>(std::forward<CArgs>(args)...);
+            auto data = std::make_unique<std::remove_cvref_t<T>>(std::forward<CArgs>(args)...);
 
             func_call_t call = +[](unique_function *self, Args &&...args) -> result_type {
                 auto &f = *reinterpret_cast<std::remove_cvref_t<T> *>(self->m_state.data);
@@ -134,13 +135,15 @@ public:
                 };
 
                 result.move_construct = +[](void *lhs, void *rhs) {
+                    auto *first = reinterpret_cast<std::remove_cvref_t<T> *>(lhs);
                     auto *second = reinterpret_cast<std::remove_cvref_t<T> *>(rhs);
-                    new (lhs) std::remove_cvref_t<T>(std::move(*second));
+                    std::construct_at(first, std::move(*second));
                 };
 
                 return result;
             }();
-            m_state.data = reinterpret_cast<void *>(data);
+
+            m_state.data = reinterpret_cast<void *>(data.release());
             m_state.call = call;
             m_state.vtable = &table;
         }
