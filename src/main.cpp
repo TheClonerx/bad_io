@@ -13,6 +13,7 @@
 #include <tcx/async/ioring/close.hpp>
 #include <tcx/async/ioring/open.hpp>
 #include <tcx/async/ioring/read.hpp>
+#include <tcx/async/ioring/stat.hpp>
 #include <tcx/is_service.hpp>
 #include <tcx/services/ioring_service.hpp>
 #include <tcx/unsynchronized_execution_context.hpp>
@@ -57,17 +58,12 @@ int main()
             throw std::system_error(ec);
 
         auto statbuf = std::make_unique<struct ::stat>();
+        auto p = statbuf.get();
+        tcx::async_statat(ctx, io_service, fd, "", p, AT_EMPTY_PATH, [&ctx, &io_service, fd, statbuf = std::move(statbuf)](std::error_code ec) {
+            if (ec)
+                throw std::system_error(ec);
 
-        auto statxbuf = std::make_unique<struct ::statx>();
-        auto p = statxbuf.get();
-        io_service.async_statx(fd, "", AT_EMPTY_PATH, STATX_SIZE, p, [&ctx, &io_service, fd, statxbuf = std::move(statxbuf)](std::int64_t res) {
-            if (res < 0)
-                throw std::system_error(-res, std::system_category());
-            if (statxbuf->stx_mask & STATX_SIZE) {
-                read_everything(ctx, io_service, fd, statxbuf->stx_size);
-            } else {
-                std::printf("Couldn't obtain size\n");
-            }
+            read_everything(ctx, io_service, fd, statbuf->st_size);
         });
     });
 
