@@ -1,4 +1,6 @@
 [requires]
+concurrentqueue/1.0.3
+
 liburing/2.1
 
 [generators]

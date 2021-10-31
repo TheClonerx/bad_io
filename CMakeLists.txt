@@ -28,6 +28,8 @@ if (WITH_URING)
     find_package(liburing REQUIRED)
 endif()
 
+find_package(concurrentqueue REQUIRED)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -35,6 +37,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_library(event_loop)
 target_sources(event_loop PRIVATE src/execution_context.cpp)
 target_include_directories(event_loop PUBLIC include)
+target_link_libraries(event_loop PUBLIC concurrentqueue::concurrentqueue)
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     if (WITH_URING)

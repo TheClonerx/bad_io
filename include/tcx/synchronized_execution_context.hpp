@@ -1,9 +1,7 @@
 #ifndef TCX_SYNCHRONIZED_EXECUTION_CONTEXT_HPP
 #define TCX_SYNCHRONIZED_EXECUTION_CONTEXT_HPP
 
-#include <mutex>
-#include <queue>
-#include <type_traits>
+#include <moodycamel/concurrentqueue.h>
 
 #include <tcx/unique_function.hpp>
 
@@ -24,8 +22,7 @@ public:
     template <typename F>
     void post(F &&f) requires(std::is_invocable_r_v<void, F> &&std::is_move_constructible_v<F>)
     {
-        std::scoped_lock lock_guard(m_mutex);
-        m_function_queue.emplace(std::forward<F>(f));
+        m_function_queue.enqueue(function_storage(std::forward<F>(f)));
     }
 
     std::size_t run();
@@ -33,8 +30,7 @@ public:
     ~synchronized_execution_context() = default;
 
 private:
-    std::queue<function_storage> m_function_queue;
-    std::mutex mutable m_mutex;
+    moodycamel::ConcurrentQueue<function_storage> m_function_queue;
 };
 
 }

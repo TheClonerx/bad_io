@@ -1,4 +1,3 @@
-#include <mutex>
 #include <tcx/synchronized_execution_context.hpp>
 #include <tcx/unsynchronized_execution_context.hpp>
 
@@ -19,13 +18,8 @@ std::size_t tcx::synchronized_execution_context::run()
     std::size_t count = 0;
     function_storage f;
     for (;;) {
-        {
-            std::scoped_lock lock_guard(m_mutex);
-            if (m_function_queue.empty())
-                break;
-            f = std::move(m_function_queue.front());
-            m_function_queue.pop();
-        }
+        if (!m_function_queue.try_dequeue(f))
+            break;
         f();
         ++count;
     }
