@@ -1,14 +1,14 @@
 #ifndef TCX_SEMAPHORE_HPP
 #define TCX_SEMAPHORE_HPP
 
-#include <atomic> // std::atomic
+#include <atomic> // std::atomic_ptrdiff_t
+#include <cassert>
 #include <coroutine>
-#include <cstddef> // std::ptrdiff_t
-#include <optional>
-#include <queue>
 #include <semaphore> // std::counting_semaphore<>::max()
 #include <type_traits> // std::is_invokable_v
 #include <utility> // std::forward
+
+#include <moodycamel/concurrentqueue.h>
 
 #include <tcx/async/use_awaitable.hpp>
 #include <tcx/unique_function.hpp>
@@ -57,22 +57,20 @@ public:
     void async_acquire(F &&f) requires std::is_invocable_v<F>
     {
         if (auto old = m_count.fetch_sub(1); old - 1 > 0) {
-            executor().post([this, f = std::forward<F>(f)]() mutable {
-                f();
-            });
+            executor().post(std::forward<F>(f));
         } else {
-            // acquire a mutex?
-            m_functions.emplace(std::forward<F>(f));
+            m_functions.enqueue(function_storage(std::forward<F>(f)));
         }
     }
 
     void release(std::ptrdiff_t update = 1)
     {
         if (auto old = m_count.fetch_add(update); old + update > 0) {
-            // acquire a mutex?
             for (std::ptrdiff_t i = 0; i < -old; ++i) {
-                executor().post(std::move(m_functions.back()));
-                m_functions.pop();
+                function_storage f;
+                bool const could = m_functions.try_dequeue(f);
+                assert(could && "Queue appears to be empty??"); // sanity check
+                executor().post(std::move(f));
             }
         }
     }
@@ -83,9 +81,9 @@ public:
     }
 
 private:
-    std::atomic<std::ptrdiff_t> m_count;
+    std::atomic_ptrdiff_t m_count;
     E &m_executor;
-    std::queue<function_storage> m_functions;
+    moodycamel::ConcurrentQueue<function_storage> m_functions;
 };
 
 template <typename E>
