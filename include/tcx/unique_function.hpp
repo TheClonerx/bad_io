@@ -67,11 +67,11 @@ public:
         } else if constexpr (std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
             m_state.data = reinterpret_cast<void *>(static_cast<result_type (*)(Args...)>(f));
             m_state.call = +[](unique_function *self, Args &&...args) -> result_type {
-                auto *f = reinterpret_cast<result_type (*)(Args...)>(self->m_state.data);
+                auto *pfn = reinterpret_cast<result_type (*)(Args...)>(self->m_state.data);
                 if constexpr (std::is_void_v<result_type>)
-                    return static_cast<result_type>((*f)(std::forward<Args>(args)...));
+                    return (void)std::invoke(pfn, std::forward<Args>(args)...);
                 else
-                    return (*f)(std::forward<Args>(args)...);
+                    return std::invoke(pfn, std::forward<Args>(args)...);
             };
         } else {
             new (this) unique_function(std::in_place_type<F>, std::forward<F>(f));
