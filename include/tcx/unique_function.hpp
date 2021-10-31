@@ -79,8 +79,7 @@ public:
     }
 
     template <typename T, typename... CArgs>
-    requires std::invocable<T, Args...>
-    unique_function(std::in_place_type_t<T>, CArgs &&...args)
+    unique_function(std::in_place_type_t<T>, CArgs &&...args) requires(std::is_invocable_v<T, Args...> &&std::is_constructible_v<T, CArgs...>)
     {
         bool store_inline = std::is_move_constructible_v<T> && std::is_nothrow_move_constructible_v<T>;
         void *pointer = m_storage;
