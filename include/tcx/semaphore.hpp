@@ -39,7 +39,7 @@ public:
         }
     }
 
-    bool try_acquire()
+    bool try_acquire() noexcept
     {
         if (auto old = m_count.fetch_sub(1); old - 1 > 0) {
             return true;
