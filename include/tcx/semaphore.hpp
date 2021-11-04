@@ -32,10 +32,19 @@ public:
     template <typename F>
     void async_acquire(F &&f) requires std::is_invocable_v<F>
     {
+        if (!async_try_acquire(std::forward<F>(f))) {
+            m_functions.enqueue(function_storage(std::forward<F>(f)));
+        }
+    }
+
+    template <typename F>
+    bool async_try_acquire(F &&f) requires std::is_invocable_v<F>
+    {
         if (auto old = m_count.fetch_sub(1); old - 1 > 0) {
             executor().post(std::forward<F>(f));
+            return true;
         } else {
-            m_functions.enqueue(function_storage(std::forward<F>(f)));
+            return false;
         }
     }
 
@@ -71,7 +80,6 @@ struct semaphore : basic_semaphore<Max, E, tcx::unique_function<void()>> {
 
 template <typename E>
 semaphore(E &, std::ptrdiff_t) -> semaphore<std::counting_semaphore<>::max(), E>;
-
 }
 
 #endif
