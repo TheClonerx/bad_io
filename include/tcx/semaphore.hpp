@@ -82,6 +82,10 @@ struct semaphore : basic_semaphore<tcx::unique_function<void()>, E, LeastMaxValu
 
 template <typename E>
 semaphore(E &, std::ptrdiff_t) -> semaphore<E, PTRDIFF_MAX>;
+
+template <typename E>
+using binary_semaphore = semaphore<E, 1>;
+
 }
 
 #endif
