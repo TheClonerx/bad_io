@@ -11,14 +11,14 @@
 
 namespace tcx {
 
-template <std::ptrdiff_t Max, typename E, typename FunctionStorage>
+template <typename FunctionStorage, typename E, std::ptrdiff_t LeastMaxValue = PTRDIFF_MAX>
 class basic_semaphore {
 private:
 public:
     using executor_type = E;
     using function_storage = FunctionStorage;
 
-    constexpr explicit basic_semaphore(E &executor, std::ptrdiff_t desired = Max)
+    constexpr explicit basic_semaphore(E &executor, std::ptrdiff_t desired = LeastMaxValue)
         : m_count(desired)
         , m_executor(executor)
     {
@@ -64,7 +64,7 @@ public:
 
     static constexpr std::ptrdiff_t max() noexcept
     {
-        return Max;
+        return LeastMaxValue;
     }
 
 private:
@@ -75,13 +75,13 @@ private:
 
 #include <tcx/unique_function.hpp>
 
-template <std::ptrdiff_t Max, typename E>
-struct semaphore : basic_semaphore<Max, E, tcx::unique_function<void()>> {
-    using basic_semaphore<Max, E, tcx::unique_function<void()>>::basic_semaphore;
+template <typename E, std::ptrdiff_t LeastMaxValue = PTRDIFF_MAX>
+struct semaphore : basic_semaphore<tcx::unique_function<void()>, E, LeastMaxValue> {
+    using basic_semaphore<tcx::unique_function<void()>, E, LeastMaxValue>::basic_semaphore;
 };
 
 template <typename E>
-semaphore(E &, std::ptrdiff_t) -> semaphore<std::counting_semaphore<>::max(), E>;
+semaphore(E &, std::ptrdiff_t) -> semaphore<E, PTRDIFF_MAX>;
 }
 
 #endif
