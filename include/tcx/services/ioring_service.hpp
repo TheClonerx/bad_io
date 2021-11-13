@@ -39,7 +39,23 @@ public:
     using operation_id = decltype(std::declval<io_uring_sqe>().user_data);
 #endif
     inline static native_handle_type invalid_handle = tcx::invalid_handle;
+
+    /**
+     * @brief Construct a new ioring service object
+     *
+     * Creates the io_uring's file descriptor and maps the rings using a default number of entries.
+     */
     ioring_service();
+
+    /**
+     * @brief Construct a new ioring service object
+     *
+     * Creates the io_uring's file descriptor and maps the rings.
+     *
+     * If the value of `entries` is zero or is greater than an implementation-defined limit, that limit is used instead.
+     *
+     * @param entries The maximum number of entries that can be at the same time.
+     */
     explicit ioring_service(std::uint32_t entries);
 
     ioring_service(ioring_service const &other) = delete;
