@@ -16,6 +16,10 @@
 #include <tcx/native/handle.hpp>
 
 namespace tcx {
+
+/**
+ * @brief Specifies that a type can be used as a completion handler in `tcx::ioring_service`
+ */
 template <typename F>
 concept ioring_completion_handler = std::is_invocable_v<F, std::int32_t>;
 
