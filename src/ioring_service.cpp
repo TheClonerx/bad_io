@@ -3,7 +3,7 @@
 #include <cassert>
 
 tcx::ioring_service::ioring_service(std::uint32_t entries)
-    : m_uring(setup_rings(entries))
+    : m_uring(setup_rings(entries ? entries : ~static_cast<std::uint32_t>(0)))
 {
 }
 

@@ -1,7 +1,6 @@
 #ifndef TCX_SERVICES_IORING_SERVICE_HPP
 #define TCX_SERVICES_IORING_SERVICE_HPP
 
-#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -9,13 +8,12 @@
 #include <system_error>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 #include <fcntl.h> // only for AT_FDCWD
 
 #include <liburing.h>
 
-#include <tcx/unique_function.hpp>
+#include <tcx/native/handle.hpp>
 
 namespace tcx {
 template <typename F>
@@ -23,8 +21,7 @@ concept ioring_completion_handler = std::is_invocable_v<F, std::int32_t>;
 
 class ioring_service {
 public:
-    using native_handle_type = int;
-    static constexpr native_handle_type invalid_handle = -1;
+    using native_handle_type = tcx::native_handle_type;
 
     ioring_service();
     explicit ioring_service(std::uint32_t entries);
@@ -35,6 +32,11 @@ public:
     ioring_service &operator=(ioring_service const &other) = delete;
     ioring_service &operator=(ioring_service &&other) = delete;
 
+    /**
+     * @brief Returns the underlying implementation-defined io_uring handle
+     *
+     * @return native_handle_type Implementation defined handle type representing the io_uring.
+     */
     native_handle_type native_handle() noexcept
     {
         return m_uring.ring_fd;
