@@ -32,7 +32,7 @@ public:
     template <typename F>
     void async_acquire(F &&f) requires std::is_invocable_v<F>
     {
-        if (try_acquire(std::forward<F>(f))) {
+        if (auto const value = m_count.fetch_sub(1, std::memory_order_acquire) - 1; value >= 0) {
             executor().post(std::forward<F>(f));
         } else {
             m_functions.enqueue(function_storage(std::forward<F>(f)));
@@ -41,16 +41,18 @@ public:
 
     bool try_acquire() noexcept
     {
-        if (auto old = m_count.fetch_sub(1); old - 1 > 0) {
-            return true;
-        } else {
-            return false;
+        std::ptrdiff_t old = m_count.load(std::memory_order_acquire);
+        for (;;) {
+            if (old <= 0)
+                return false;
+            if (m_count.compare_exchange_strong(old, old - 1, std::memory_order_acquire, std::memory_order_relaxed))
+                return true;
         }
     }
 
     void release(std::ptrdiff_t update = 1)
     {
-        if (auto old = m_count.fetch_add(update); old + update > 0) {
+        if (auto old = m_count.fetch_add(update, std::memory_order_release); old + update > 0) {
             for (std::ptrdiff_t i = 0; i < -old; ++i) {
                 function_storage f;
                 bool const could = m_functions.try_dequeue(f);
