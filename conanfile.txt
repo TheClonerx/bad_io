@@ -3,6 +3,9 @@ concurrentqueue/1.0.3
 
 liburing/2.1
 
+[build_requires]
+doxygen/1.9.2
+
 [generators]
 cmake_paths
 cmake_find_package
