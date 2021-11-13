@@ -23,6 +23,15 @@ class ioring_service {
 public:
     using native_handle_type = tcx::native_handle_type;
 
+#ifdef DOXYGEN_INVOKED
+    /**
+     * @brief Uniquely identifies the operation in the same `tcx::ioring_service` instance
+     */
+    using operation_id = implementation defined;
+#else
+    using operation_id = decltype(std::declval<io_uring_sqe>().user_data);
+#endif
+    inline static native_handle_type invalid_handle = tcx::invalid_handle;
     ioring_service();
     explicit ioring_service(std::uint32_t entries);
 
@@ -42,9 +51,14 @@ public:
         return m_uring.ring_fd;
     }
 
-    // does nothing (asynchronously)
+    /**
+     * @brief Does nothing (asynchronously)
+     *
+     * @param f Callback
+     * @return ID of the operation
+     */
     template <tcx::ioring_completion_handler F>
-    auto async_noop(F &&f)
+    operation_id async_noop(F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_nop(&op);
