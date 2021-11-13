@@ -23,6 +23,9 @@ namespace tcx {
 template <typename F>
 concept ioring_completion_handler = std::is_invocable_v<F, std::int32_t>;
 
+/**
+ * @brief This class wraps an instance of Linux's io_uring
+ */
 class ioring_service {
 public:
     using native_handle_type = tcx::native_handle_type;
