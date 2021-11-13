@@ -91,7 +91,7 @@ public:
 
     // preadv2(2)
     template <tcx::ioring_completion_handler F>
-    auto async_readv(int fd, iovec const *iov, std::size_t len, off_t offset, int flags, F &&f)
+    operation_id async_readv(int fd, iovec const *iov, std::size_t len, off_t offset, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_readv(&op, fd, iov, len, offset);
@@ -102,7 +102,7 @@ public:
 
     // pwritev2(2)
     template <tcx::ioring_completion_handler F>
-    auto async_writev(int fd, iovec const *iov, std::size_t len, off_t offset, int flags, F &&f)
+    operation_id async_writev(int fd, iovec const *iov, std::size_t len, off_t offset, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_writev(&op, fd, iov, len, offset);
@@ -113,7 +113,7 @@ public:
 
     // fsync(2)
     template <tcx::ioring_completion_handler F>
-    auto async_fsync(int fd, int flags, F &&f)
+    operation_id async_fsync(int fd, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_fsync(&op, fd, flags);
@@ -123,7 +123,7 @@ public:
 
     // epoll_wait(2)
     template <tcx::ioring_completion_handler F>
-    auto async_poll_add(int fd, std::uint32_t events, F &&f)
+    operation_id async_poll_add(int fd, std::uint32_t events, F &&f)
     {
 
         io_uring_sqe op {};
@@ -134,7 +134,7 @@ public:
 
     // epoll_wait(2)
     template <tcx::ioring_completion_handler F>
-    auto async_poll_remove(std::uint64_t operation_id, F &&f)
+    operation_id async_poll_remove(std::uint64_t operation_id, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_poll_remove(&op, nullptr); // this takes a pointer (which might not be 64 bits) as addr (__u64)
@@ -145,7 +145,7 @@ public:
 
     // epoll_ctl(2)
     template <tcx::ioring_completion_handler F>
-    auto async_epoll_ctl(int epoll_fd, int op, int fd, epoll_event *event, F &&f)
+    operation_id async_epoll_ctl(int epoll_fd, int op, int fd, epoll_event *event, F &&f)
     {
         io_uring_sqe operation {};
         io_uring_prep_epoll_ctl(&operation, epoll_fd, fd, op, event);
@@ -155,7 +155,7 @@ public:
 
     // sync_file_range(2)
     template <tcx::ioring_completion_handler F>
-    auto async_sync_file_range(int fd, off64_t offset, off64_t nbytes, unsigned flags, F &&f)
+    operation_id async_sync_file_range(int fd, off64_t offset, off64_t nbytes, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_sync_file_range(&op, fd, nbytes, offset, flags);
@@ -165,7 +165,7 @@ public:
 
     // sendmsg(2)
     template <tcx::ioring_completion_handler F>
-    auto async_sendmsg(int fd, msghdr const *msg, int flags, F &&f)
+    operation_id async_sendmsg(int fd, msghdr const *msg, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_sendmsg(&op, fd, msg, flags);
@@ -175,7 +175,7 @@ public:
 
     // recvmsg(2)
     template <tcx::ioring_completion_handler F>
-    auto async_recvmsg(int fd, msghdr *msg, int flags, F &&f)
+    operation_id async_recvmsg(int fd, msghdr *msg, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_recvmsg(&op, fd, msg, flags);
@@ -185,7 +185,7 @@ public:
 
     // send(2)
     template <tcx::ioring_completion_handler F>
-    auto async_send(int fd, void const *buf, std::size_t len, int flags, F &&f)
+    operation_id async_send(int fd, void const *buf, std::size_t len, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_send(&op, fd, buf, len, flags);
@@ -195,7 +195,7 @@ public:
 
     // recv(2)
     template <tcx::ioring_completion_handler F>
-    auto async_recv(int fd, void *buf, std::size_t len, int flags, F &&f)
+    operation_id async_recv(int fd, void *buf, std::size_t len, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_recv(&op, fd, buf, len, flags);
@@ -204,7 +204,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_timeout(__kernel_timespec const *timeout, bool absolute, F &&f)
+    operation_id async_timeout(__kernel_timespec const *timeout, bool absolute, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_timeout(&op, const_cast<__kernel_timespec *>(timeout), 0, IORING_TIMEOUT_ABS * absolute);
@@ -213,7 +213,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_timeout_remove(std::uint64_t timer_id, F &&f)
+    operation_id async_timeout_remove(std::uint64_t timer_id, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_timeout_remove(&op, timer_id, 0);
@@ -222,7 +222,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_timeout_update(std::uint64_t timer_id, __kernel_timespec const *timeout, bool absolute, F &&f)
+    operation_id async_timeout_update(std::uint64_t timer_id, __kernel_timespec const *timeout, bool absolute, F &&f)
     {
         io_uring_sqe op {};
         // this wil cast timer_id to a pointer which might not be 64bits
@@ -234,7 +234,7 @@ public:
 
     // accept4(2)
     template <tcx::ioring_completion_handler F>
-    auto async_accept(int fd, sockaddr *addr, socklen_t *addrlen, int flags, F &&f)
+    operation_id async_accept(int fd, sockaddr *addr, socklen_t *addrlen, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_accept(&op, fd, addr, addrlen, flags);
@@ -243,7 +243,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_cancel(std::uint64_t operation_id, F &&f)
+    operation_id async_cancel(std::uint64_t operation_id, F &&f)
     {
         io_uring_sqe op {};
         // this wil cast operation_id to a pointer which might not be 64bits
@@ -254,7 +254,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_link_timeout(__kernel_timespec const *timeout, bool absolute, F &&f)
+    operation_id async_link_timeout(__kernel_timespec const *timeout, bool absolute, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_link_timeout(&op, const_cast<__kernel_timespec *>(timeout), IORING_TIMEOUT_ABS * absolute);
@@ -263,7 +263,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_connect(int fd, sockaddr const *addr, socklen_t len, F &&f)
+    operation_id async_connect(int fd, sockaddr const *addr, socklen_t len, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_connect(&op, fd, addr, len);
@@ -273,7 +273,7 @@ public:
 
     // fallocate(2)
     template <tcx::ioring_completion_handler F>
-    auto async_fallocate(int fd, int mode, off_t offset, off_t len, F &&f)
+    operation_id async_fallocate(int fd, int mode, off_t offset, off_t len, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_fallocate(&op, fd, mode, offset, len);
@@ -283,7 +283,7 @@ public:
 
     // posix_fadvise(2)
     template <tcx::ioring_completion_handler F>
-    auto async_fadvice(int fd, off_t offset, off_t len, int advice, F &&f)
+    operation_id async_fadvice(int fd, off_t offset, off_t len, int advice, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_fadvise(&op, fd, offset, len, advice);
@@ -293,7 +293,7 @@ public:
 
     // madvice(2)
     template <tcx::ioring_completion_handler F>
-    auto async_madvice(void *addr, std::size_t length, int advice, F &&f)
+    operation_id async_madvice(void *addr, std::size_t length, int advice, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_madvise(&op, addr, length, advice);
@@ -303,7 +303,7 @@ public:
 
     // openat(2)
     template <tcx::ioring_completion_handler F>
-    auto async_openat(int dir_fd, char const *pathname, int flags, mode_t mode, F &&f)
+    operation_id async_openat(int dir_fd, char const *pathname, int flags, mode_t mode, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_openat(&op, dir_fd, pathname, flags, mode);
@@ -313,14 +313,14 @@ public:
 
     // open(2)
     template <tcx::ioring_completion_handler F>
-    auto async_open(char const *pathname, int flags, mode_t mode, F &&f)
+    operation_id async_open(char const *pathname, int flags, mode_t mode, F &&f)
     {
         return async_openat(AT_FDCWD, pathname, flags, mode, std::forward<F>(f));
     }
 
     // openat2(2)
     template <tcx::ioring_completion_handler F>
-    auto async_openat2(int dir_fd, char const *pathname, ::open_how *how, std::size_t size, F &&f)
+    operation_id async_openat2(int dir_fd, char const *pathname, ::open_how *how, std::size_t size, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_openat2(&op, dir_fd, pathname, how);
@@ -331,7 +331,7 @@ public:
 
     // close(2)
     template <tcx::ioring_completion_handler F>
-    auto async_close(int fd, F &&f)
+    operation_id async_close(int fd, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_close(&op, fd);
@@ -341,7 +341,7 @@ public:
 
     // statx(2)
     template <tcx::ioring_completion_handler F>
-    auto async_statx(int dir_fd, char const *pathname, int flags, unsigned mask, struct ::statx *statxbuf, F &&f)
+    operation_id async_statx(int dir_fd, char const *pathname, int flags, unsigned mask, struct ::statx *statxbuf, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_statx(&op, dir_fd, pathname, flags, mask, statxbuf);
@@ -351,7 +351,7 @@ public:
 
     // read(2) if `offset` is less than 0, pread(2) otherwise
     template <tcx::ioring_completion_handler F>
-    auto async_read(int fd, void *buf, std::size_t len, off_t offset, F &&f)
+    operation_id async_read(int fd, void *buf, std::size_t len, off_t offset, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_read(&op, fd, buf, len, offset);
@@ -361,7 +361,7 @@ public:
 
     // write(2) if `offset` is less than 0, pwrite(2) otherwise
     template <tcx::ioring_completion_handler F>
-    auto async_write(int fd, void const *buf, std::size_t len, off_t offset, F &&f)
+    operation_id async_write(int fd, void const *buf, std::size_t len, off_t offset, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_write(&op, fd, buf, len, offset);
@@ -371,7 +371,7 @@ public:
 
     // splice(2) use -1 to signify null offsets
     template <tcx::ioring_completion_handler F>
-    auto async_splice(int fd_in, off64_t off_in, int fd_out, off64_t off_out, std::size_t len, unsigned flags, F &&f)
+    operation_id async_splice(int fd_in, off64_t off_in, int fd_out, off64_t off_out, std::size_t len, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_splice(&op, fd_in, off_in, fd_out, fd_out, len, flags);
@@ -381,7 +381,7 @@ public:
 
     // tee(2)
     template <tcx::ioring_completion_handler F>
-    auto async_tee(int fd_in, int fd_out, std::size_t len, unsigned flags, F &&f)
+    operation_id async_tee(int fd_in, int fd_out, std::size_t len, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_tee(&op, fd_in, fd_out, len, flags);
@@ -390,7 +390,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_provide_buffers(void *addr, int buff_lens, int buff_count, int buff_group, int start_id, F &&f)
+    operation_id async_provide_buffers(void *addr, int buff_lens, int buff_count, int buff_group, int start_id, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_provide_buffers(&op, addr, buff_lens, buff_count, buff_group, start_id);
@@ -399,7 +399,7 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    auto async_remove_buffers(int buff_count, std::uint16_t buff_group, F &&f)
+    operation_id async_remove_buffers(int buff_count, std::uint16_t buff_group, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_remove_buffers(&op, buff_count, buff_group);
@@ -409,7 +409,7 @@ public:
 
     // shutdown(2)
     template <tcx::ioring_completion_handler F>
-    auto async_shutdown(int fd, int how, F &&f)
+    operation_id async_shutdown(int fd, int how, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_shutdown(&op, fd, how);
@@ -419,7 +419,7 @@ public:
 
     // renameat2(2)
     template <tcx::ioring_completion_handler F>
-    auto async_renameat(int old_fd, char const *old_path, int new_fd, char const *new_path, int flags, F &&f)
+    operation_id async_renameat(int old_fd, char const *old_path, int new_fd, char const *new_path, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_renameat(&op, old_fd, old_path, new_fd, new_path, flags);
@@ -429,14 +429,14 @@ public:
 
     // rename(2)
     template <tcx::ioring_completion_handler F>
-    auto async_rename(char const *old_path, char const *new_path, F &&f)
+    operation_id async_rename(char const *old_path, char const *new_path, F &&f)
     {
         return async_renameat(AT_FDCWD, old_path, AT_FDCWD, new_path, 0, std::forward<F>(f));
     }
 
     // unlinkat2(2)
     template <tcx::ioring_completion_handler F>
-    auto async_unlinkat(int dir_fd, char const *pathname, int flags, F &&f)
+    operation_id async_unlinkat(int dir_fd, char const *pathname, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_unlinkat(&op, dir_fd, pathname, flags);
@@ -446,7 +446,7 @@ public:
 
     // unlink(2)
     template <tcx::ioring_completion_handler F>
-    auto async_unlink(char const *pathname, F &&f)
+    operation_id async_unlink(char const *pathname, F &&f)
     {
         return async_unlinkat(AT_FDCWD, pathname, 0, std::forward<F>(f));
     }
