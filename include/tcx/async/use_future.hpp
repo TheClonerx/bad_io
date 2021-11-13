@@ -7,21 +7,39 @@
 
 namespace tcx {
 
-template <typename T>
+/**
+ * @brief Wraps an asynchronous operation to use `std::future<R>`.
+
+ * @tparam R Result type.
+ */
+template <typename R>
 struct using_future_t {
 
     explicit using_future_t() = default;
 
-    std::future<T> async_result()
+    /**
+     * @brief Returns the future back to the caller.
+     *
+     * @return std::future<R>
+     */
+    std::future<R> async_result()
     {
         return m_promise.get_future();
     }
 
-    void operator()(std::error_code ec, T result)
+    /**
+     * @brief Sets the result of the operation to the promise
+
+     * In case of an error, an `std::system_error` exception is set with the value of `error`.
+     * Otherwise `result` is moved into the promise.
+     * @param ec
+     * @param result
+     */
+    void operator()(std::error_code error, R result)
     {
-        if (ec) {
+        if (error) {
             try {
-                throw std::system_error(ec);
+                throw std::system_error(error);
             } catch (...) {
                 m_promise.set_exception(std::current_exception());
             }
@@ -31,16 +49,20 @@ struct using_future_t {
     }
 
 private:
-    std::promise<T> m_promise;
+    std::promise<R> m_promise;
 };
 
+/**
+ * @brief Transforms an asynchronous operation to use `std::future<R>`.
+ * @see tcx::using_future_t
+ */
 struct use_future_t {
     explicit constexpr use_future_t() noexcept = default;
 
-    template <typename T>
-    using_future_t<T> async_transform() const
+    template <typename R>
+    using_future_t<R> async_transform() const
     {
-        return using_future_t<T> {};
+        return using_future_t<R> {};
     }
 };
 
