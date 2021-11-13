@@ -19,8 +19,6 @@ struct using_future_t {
 
     /**
      * @brief Returns the future back to the caller.
-     *
-     * @return std::future<R>
      */
     std::future<R> async_result()
     {
@@ -32,7 +30,7 @@ struct using_future_t {
 
      * In case of an error, an `std::system_error` exception is set with the value of `error`.
      * Otherwise `result` is moved into the promise.
-     * @param ec
+     * @param error
      * @param result
      */
     void operator()(std::error_code error, R result)
