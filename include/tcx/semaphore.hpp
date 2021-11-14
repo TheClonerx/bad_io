@@ -3,7 +3,7 @@
 
 #include <atomic> // std::atomic_ptrdiff_t
 #include <cassert>
-#include <semaphore> // std::counting_semaphore<>::max()
+#include <limits> // std::numeric_limits
 #include <type_traits> // std::is_invokable_v
 #include <utility> // std::forward
 
@@ -11,14 +11,18 @@
 
 namespace tcx {
 
-template <typename FunctionStorage, typename E, std::ptrdiff_t LeastMaxValue = PTRDIFF_MAX>
+template <typename FunctionStorage, typename E>
 class basic_semaphore {
 private:
+    using value_type = std::ptrdiff_t;
+
+    static_assert(std::is_signed_v<value_type>, "The counter must have a signed type");
+
 public:
     using executor_type = E;
     using function_storage = FunctionStorage;
 
-    constexpr explicit basic_semaphore(E &executor, std::ptrdiff_t desired = LeastMaxValue)
+    basic_semaphore(E &executor, std::ptrdiff_t desired)
         : m_count(desired)
         , m_executor(executor)
     {
@@ -64,27 +68,24 @@ public:
 
     static constexpr std::ptrdiff_t max() noexcept
     {
-        return LeastMaxValue;
+        return std::numeric_limits<value_type>::max() / sizeof(function_storage);
     }
 
 private:
-    std::atomic_ptrdiff_t m_count;
+    std::atomic<value_type> m_count;
     E &m_executor;
     moodycamel::ConcurrentQueue<function_storage> m_functions;
 };
 
 #include <tcx/unique_function.hpp>
 
-template <typename E, std::ptrdiff_t LeastMaxValue = PTRDIFF_MAX>
-struct semaphore : basic_semaphore<tcx::unique_function<void()>, E, LeastMaxValue> {
-    using basic_semaphore<tcx::unique_function<void()>, E, LeastMaxValue>::basic_semaphore;
+template <typename E>
+struct semaphore : basic_semaphore<tcx::unique_function<void()>, E> {
+    using basic_semaphore<tcx::unique_function<void()>, E>::basic_semaphore;
 };
 
 template <typename E>
-semaphore(E &, std::ptrdiff_t) -> semaphore<E, PTRDIFF_MAX>;
-
-template <typename E>
-using binary_semaphore = semaphore<E, 1>;
+semaphore(E &, std::ptrdiff_t) -> semaphore<E>;
 
 }
 
