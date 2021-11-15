@@ -80,7 +80,7 @@ int main()
             } catch (std::exception const &e) {
                 std::fprintf(stderr, "error: %s\n", e.what());
             }
-        if (tasks_pending)
+        if (ctx.pending())
             try {
                 ctx.run();
             } catch (std::exception const &e) {

@@ -12,8 +12,8 @@ struct wrap_op {
     template <typename E, typename S, typename F, typename... Args>
     static auto call(E &executor, S &service, F &&f, Args &&...args)
     {
-        if constexpr (tcx::impl::has_async_transform_t<F, typename Op::result_type>::value) {
-            return call(executor, service, std::forward<Args>(args)..., f.template async_transform<typename Op::result_type>());
+        if constexpr (tcx::impl::has_async_transform<F, typename Op::result_type>) {
+            return call(executor, service, f.template async_transform<typename Op::result_type>(), std::forward<Args>(args)...);
         } else if constexpr (tcx::impl::has_async_result<F>) {
             auto result = f.async_result();
             execute(executor, service, std::forward<F>(f), std::forward<Args>(args)...);
