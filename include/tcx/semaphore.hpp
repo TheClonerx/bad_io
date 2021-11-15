@@ -12,20 +12,28 @@
 namespace tcx {
 
 /**
- * @brief Semaphore that models a non-negative resource count.
- *
+ * @brief Semaphore that models a thread-safe non-negative resource count.
 
- * A basic_semaphore contains an internal counter initialized by the constructor.
- * This counter is decremented by calls to async_acquire() and try_acquire(),
- * and is incremented by calls to release().
+ * @see tcx::semaphore
 
- * When the counter reaches zero, async_acquire() stores the callback in an internal list
- * until the counter is incremented, and then is posted to the executor, but try_acquire()
- * instead immediately returns failure.
- * @tparam FunctionStorage
- * @tparam E
+ * A `tcx::basic_semaphore` contains a reference to an executor,
+ * an internal counter initialized by the constructor, and a list of completions.
+ * The counter is decremented by calls to `async_acquire()` and `try_acquire()`,
+ * and is incremented by calls to `release()`.
+
+ * When the counter reaches greater than 0, `async_acquire()` imediatly
+ * posts the completion to the associated executor, and `try_acquire()` returns `true`.
+
+ * When the counter reaches less-than or equal-to 0, `async_acquire()` stores the completion in the internal list
+ * to be posted to the associated executor when the counter becomes greater than 0,
+ * but `try_acquire()` instead immediately returns `false` without decrementing the counter.
+
+ * @warning Calling `release()`, or `async_acquire()` when the internal counter is positive,
+ *          from multiple threads requires that posting to the associated executor is thread-safe.
+
+ * The order in which the completions are posted to the associated executor (if any) is implementation defined.
  */
-template <typename FunctionStorage, typename E>
+template <typename FunctionStorage, typename Executor>
 class basic_semaphore {
 private:
     using value_type = std::ptrdiff_t;
@@ -33,8 +41,8 @@ private:
     static_assert(std::is_signed_v<value_type>, "The counter must have a signed type");
 
 public:
-    using executor_type = E;
     using function_storage = FunctionStorage;
+    using executor_type = Executor;
 
     /**
      * @brief Constructs a `tcx::basic_semaphore`
@@ -44,7 +52,7 @@ public:
      * @param executor An executor to post completion handlers for any asynchronous operations.
      * @param desired  The value to initialize `tcx::basic_semaphore`'s counter with.
      */
-    basic_semaphore(E &executor, std::ptrdiff_t desired)
+    basic_semaphore(executor_type &executor, std::ptrdiff_t desired)
         : m_count(desired)
         , m_executor(executor)
     {
@@ -59,12 +67,12 @@ public:
     }
 
     /**
-     * @brief Decrements the internal counter and stores the callback if reachs zero.
+     * @brief Decrements the internal counter and stores the callback if reachs 0.
 
      * Atomically decrements the internal counter by 1;
-     * if it reaches zero then the completion is stored it is greater than ​0.
+     * if it reaches 0 then the completion handler is stored until it is greater than ​0.
 
-     * @param f Completion handler.
+     * @param f completion handler
      */
     template <typename F>
     void async_acquire(F &&f) requires std::is_invocable_v<F>
@@ -79,7 +87,7 @@ public:
     /**
      * @brief Tries to atomically decrement the internal counter by one.
 
-     * If the internal counter is greater than ​zero the counter is decremented and returns `true`, otherwise returns `false`.
+     * If the internal counter is greater than ​0 the counter is decremented and returns `true`, otherwise returns `false`.
      */
     bool try_acquire() noexcept
     {
@@ -93,10 +101,10 @@ public:
     }
 
     /**
-     * @brief Increments the internal counter and posts acquirers.
+     * @brief Increments the internal counter and posts completions.
 
      * Atomically increments the internal counter by the value of `update`.
-     * Any completions(s) waiting for the counter to be greater than ​0​,
+     * Any completions(s) waiting for the counter to be greater than ​0​
      * will subsequently be posted to the associated executor.
 
      * @param update the amount to increment the internal counter by
@@ -121,9 +129,27 @@ public:
         return std::numeric_limits<value_type>::max() / sizeof(function_storage);
     }
 
+#ifdef DOXYGEN_INVOKED
+    /**
+     * @brief destructs the `tcx::basic_semaphore`
+
+     * The behavior is undefined if any thread is concurrently calling
+     * any other member function on this semaphore or if there are any pending completions.
+     */
+    ~basic_semaphore();
+#endif
+
+#ifndef NDEBUG
+    ~basic_semaphore()
+    {
+        // sanity check
+        assert(m_functions.size_approx() != 0 && "Tried to destroy a semaphore with pending completions");
+    }
+#endif
+
 private:
+    Executor &m_executor;
     std::atomic<value_type> m_count;
-    E &m_executor;
     moodycamel::ConcurrentQueue<function_storage> m_functions;
 };
 
