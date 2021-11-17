@@ -20,7 +20,7 @@ public:
     unsynchronized_execution_context &operator=(unsynchronized_execution_context &&other) noexcept = default;
 
     template <typename F>
-    void post(F &&f) requires(std::is_invocable_r_v<void, F> &&std::is_move_constructible_v<F>)
+    void post(F &&f) requires(std::is_invocable_r_v<void, F>)
     {
         m_function_queue.emplace(std::forward<F>(f));
     }

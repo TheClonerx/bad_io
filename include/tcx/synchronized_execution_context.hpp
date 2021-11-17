@@ -20,7 +20,7 @@ public:
     synchronized_execution_context &operator=(synchronized_execution_context &&other) noexcept = delete;
 
     template <typename F>
-    void post(F &&f) requires(std::is_invocable_r_v<void, F> &&std::is_move_constructible_v<F>)
+    void post(F &&f) requires(std::is_invocable_r_v<void, F>)
     {
         m_function_queue.enqueue(function_storage(std::forward<F>(f)));
     }
