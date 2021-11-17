@@ -9,7 +9,7 @@ Currently I'm quite happy how `tcx::ioring_service` ended up being, and as of no
 I wrote `tcx::function_view` thinking it would be useful for this project. Currently it's not, but I'm not going to let my efford go to waste.
 
 `tcx::unique_function` was originally intended to be an allocator aware storage for callable move-only objects, but i dropped support for allocator awareness due to incrementing the complexity too much. Why not `std::function`? Well, that doesn't support move only types, which is a bummer.
-Now that `std::move_only_function` was added to C++23 im going to try aiming for this to be a pollyfil, but maybe other libraries like boost or abseil might do this better.
+Now that [`std::move_only_function`](https://en.cppreference.com/w/cpp/utility/functional/move_only_function) was added to C++23 im going to try aiming for this to be a pollyfil, but maybe other libraries like boost or abseil might do this better.
 
 `tcx::unsynchronized_execution_context` is essentially just a function queue, and as it's name implies, it's not thread safe.
 
