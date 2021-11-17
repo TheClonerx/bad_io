@@ -27,12 +27,12 @@ template <typename R, typename... Args>
 class alignas(64) unique_function<R(Args...)> {
 public:
     using result_type = R;
-    using arguments_tuple = std::tuple<Args &&...>;
+    using arguments_tuple = std::tuple<Args...>;
 
 private:
     using func_call_t = result_type (*)(unique_function *self, Args &&...);
-    using func_destroy_t = void (*)(void *data);
-    using func_move_t = void (*)(void *lhs, void *rhs);
+    using func_destroy_t = void (*)(void *data) noexcept;
+    using func_move_t = void (*)(void *lhs, void *rhs) noexcept;
 
     struct virtual_table {
         func_move_t move_construct;
@@ -53,7 +53,7 @@ public:
     }
 
     template <typename F>
-    explicit unique_function(F &&f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) requires(std::is_invocable_r_v<R, F, Args...>)
+    explicit unique_function(F &&f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)> || tcx::impl::is_reference_wrapper<F>::value) requires(std::is_invocable_r_v<R, F, Args...>)
     {
         if constexpr (tcx::impl::is_reference_wrapper<std::remove_cvref_t<F>>::value) {
             m_state.data = reinterpret_cast<void *>(&f.get());
@@ -101,12 +101,12 @@ public:
 
             static auto const table = []() {
                 virtual_table result {};
-                result.destroy = +[](void *data) -> void {
+                result.destroy = +[](void *data) noexcept -> void {
                     auto p = reinterpret_cast<std::remove_cvref_t<T> *>(data);
                     std::destroy_at(p);
                 };
 
-                result.move_construct = +[](void *lhs, void *rhs) {
+                result.move_construct = +[](void *lhs, void *rhs) noexcept {
                     auto *first = reinterpret_cast<std::remove_cvref_t<T> *>(lhs);
                     auto *second = reinterpret_cast<std::remove_cvref_t<T> *>(rhs);
                     std::construct_at(first, std::move(*second));
@@ -129,12 +129,12 @@ public:
 
             static auto const table = []() {
                 virtual_table result;
-                result.destroy = +[](void *data) -> void {
+                result.destroy = +[](void *data) noexcept -> void {
                     auto *obj = reinterpret_cast<std::remove_cvref_t<T> *>(data);
                     delete obj;
                 };
 
-                result.move_construct = +[](void *lhs, void *rhs) {
+                result.move_construct = +[](void *lhs, void *rhs) noexcept {
                     auto *first = reinterpret_cast<std::remove_cvref_t<T> *>(lhs);
                     auto *second = reinterpret_cast<std::remove_cvref_t<T> *>(rhs);
                     std::construct_at(first, std::move(*second));
@@ -175,8 +175,8 @@ public:
     friend void swap(unique_function &first, unique_function &second) noexcept
     {
         using std::swap;
-        bool const first_is_inline = std::begin(first.m_storage) < reinterpret_cast<char *>(first.m_state.data) && reinterpret_cast<char *>(first.m_state.data) < std::end(first.m_storage);
-        bool const second_is_inline = std::begin(second.m_storage) < reinterpret_cast<char *>(second.m_state.data) && reinterpret_cast<char *>(second.m_state.data) < std::end(second.m_storage);
+        bool const first_is_inline = first.m_state.data != nullptr && std::begin(first.m_storage) < reinterpret_cast<char *>(first.m_state.data) && reinterpret_cast<char *>(first.m_state.data) < std::end(first.m_storage);
+        bool const second_is_inline = second.m_state.data != nullptr && std::begin(second.m_storage) < reinterpret_cast<char *>(second.m_state.data) && reinterpret_cast<char *>(second.m_state.data) < std::end(second.m_storage);
         if (first_is_inline && second_is_inline) {
             alignas(64) char tmp_buf[64];
             std::size_t const first_index = sizeof(virtual_state) + (reinterpret_cast<char *>(first.m_state.data) - std::begin(first.m_storage));
