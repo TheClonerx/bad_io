@@ -69,7 +69,7 @@ public:
      *
      * @return native_handle_type Implementation defined handle type representing the io_uring.
      */
-    native_handle_type native_handle() noexcept
+    [[nodiscard]] native_handle_type native_handle() noexcept
     {
         return m_uring.ring_fd;
     }

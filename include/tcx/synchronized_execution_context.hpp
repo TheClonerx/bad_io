@@ -25,7 +25,7 @@ public:
         m_function_queue.enqueue(function_storage(std::forward<F>(f)));
     }
 
-    std::size_t run();
+    [[nodiscard]] std::size_t run();
 
     ~synchronized_execution_context() = default;
 

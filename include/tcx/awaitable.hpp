@@ -35,20 +35,20 @@ protected:
     using state_type = std::variant<std::monostate, stored_type, std::exception_ptr, std::monostate>;
 
 public:
-    auto get_return_object() noexcept
+    [[nodiscard]] [[nodiscard]] auto get_return_object() noexcept
     {
         return awaitable<result_type> {
             std::coroutine_handle<awaitable_promise<result_type>>::from_promise(static_cast<awaitable_promise<result_type> &>(*this))
         };
     }
 
-    bool is_ready() const noexcept
+    [[nodiscard]] bool is_ready() const noexcept
     {
         auto state_index = m_state.index();
         return state_index == 1 || state_index == 2;
     }
 
-    result_type get()
+    [[nodiscard]] result_type get()
     {
         auto state_index = m_state.index();
         if (state_index == 0)
@@ -75,17 +75,17 @@ public:
         }
     }
 
-    auto initial_suspend() const noexcept
+    [[nodiscard]] auto initial_suspend() const noexcept
     {
         return std::suspend_always {};
     }
 
-    void unhandled_exception() noexcept
+    [[nodiscard]] void unhandled_exception() noexcept
     {
         m_state.template emplace<2>(std::current_exception());
     }
 
-    auto final_suspend() const noexcept
+    [[nodiscard]] auto final_suspend() const noexcept
     {
         return std::suspend_always {};
     }
@@ -164,7 +164,7 @@ public:
         }
     }
 
-    bool is_ready() const
+    [[nodiscard]] bool is_ready() const
     {
         if (m_handle) {
             return m_handle.promise().is_read();
@@ -173,7 +173,7 @@ public:
         }
     }
 
-    result_type get()
+    [[nodiscard]] result_type get()
     {
         if (m_handle) {
             return m_handle.promise().get();
@@ -182,7 +182,7 @@ public:
         }
     }
 
-    constexpr bool valid() const noexcept
+    [[nodiscard]] constexpr bool valid() const noexcept
     {
         return m_handle;
     }

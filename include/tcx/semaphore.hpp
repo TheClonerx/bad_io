@@ -61,7 +61,7 @@ public:
     /**
      * @brief Obtain a reference to the executor associated with the object.
      */
-    executor_type &executor() const noexcept
+    [[nodiscard]] executor_type &executor() const noexcept
     {
         return m_executor;
     }
@@ -89,7 +89,7 @@ public:
 
      * If the internal counter is greater than ​0 the counter is decremented and returns `true`, otherwise returns `false`.
      */
-    bool try_acquire() noexcept
+    [[nodiscard]] bool try_acquire() noexcept
     {
         std::ptrdiff_t old = m_count.load(std::memory_order_acquire);
         for (;;) {
@@ -124,7 +124,7 @@ public:
     /**
      * @brief Returns the maximum possible value of the internal counter.
      */
-    static constexpr std::ptrdiff_t max() noexcept
+    [[nodiscard]] static constexpr std::ptrdiff_t max() noexcept
     {
         return std::numeric_limits<value_type>::max() / sizeof(function_storage);
     }
