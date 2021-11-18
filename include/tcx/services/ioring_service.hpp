@@ -455,7 +455,7 @@ public:
 
     [[nodiscard]] std::size_t pending() const noexcept
     {
-        return m_pending.load();
+        return m_pending.load(std::memory_order_acquire);
     }
 
     ~ioring_service();
@@ -495,7 +495,7 @@ private:
             }
         }
 
-        m_pending.fetch_add(1);
+        m_pending.fetch_add(1, std::memory_order_release);
 
         operation.user_data = reinterpret_cast<std::uintptr_t>(p.release());
         *sqe = operation;

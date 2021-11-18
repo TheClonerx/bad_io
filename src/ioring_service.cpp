@@ -4,6 +4,7 @@
 
 tcx::ioring_service::ioring_service(std::uint32_t entries)
     : m_uring(setup_rings(entries ? entries : ~static_cast<std::uint32_t>(0)))
+    , m_pending(0)
 {
 }
 
@@ -37,7 +38,7 @@ void tcx::ioring_service::complete(io_uring_cqe const &cqe)
     };
 
     auto *p = reinterpret_cast<Completion *>(cqe.user_data);
-    m_pending.fetch_sub(1);
+    m_pending.fetch_sub(1, std::memory_order_release);
     p->call(p, cqe.res);
 }
 
