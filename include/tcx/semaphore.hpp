@@ -36,7 +36,11 @@ namespace tcx {
 template <typename FunctionStorage, typename Executor>
 class basic_semaphore {
 private:
+#ifdef __cpp_lib_atomic_lock_free_type_aliases
+    using value_type = std::atomic_signed_lock_free::typename value_type;
+#else
     using value_type = std::ptrdiff_t;
+#endif
 
     static_assert(std::is_signed_v<value_type>, "The counter must have a signed type");
 

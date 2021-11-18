@@ -453,7 +453,7 @@ public:
 
     void poll();
 
-    std::size_t pending() const noexcept
+    [[nodiscard]] std::size_t pending() const noexcept
     {
         return m_pending.load();
     }
@@ -505,7 +505,11 @@ private:
 
 private:
     io_uring m_uring { {}, {}, {}, /*fd*/ -1, {}, {} };
-    std::atomic_size_t m_pending;
+#ifdef __cpp_lib_atomic_lock_free_type_aliases
+    std::atomic_unsigned_lock_free m_pending;
+#else
+    std::atomic<std::size_t> m_pending;
+#endif
 };
 }
 
