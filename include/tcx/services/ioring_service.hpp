@@ -188,11 +188,11 @@ public:
 
     // epoll_wait(2)
     template <tcx::ioring_completion_handler F>
-    operation_id async_poll_remove(std::uint64_t operation_id, F &&f)
+    operation_id async_poll_remove(operation_id operation, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_poll_remove(&op, nullptr); // this takes a pointer (which might not be 64 bits) as addr (__u64)
-        op.addr = operation_id; // set the operation_id directly
+        op.addr = operation; // set the operation_id directly
 
         return submit(op, std::forward<F>(f));
     }
@@ -210,6 +210,11 @@ public:
     /**
      * @brief synchronize a file segment's in-core state with it's underlying storage device
      * @see [_man 2 sync_file_range_](https://man.archlinux.org/man/sync_file_range.2.en)
+
+     * @warning
+     * <b>This operation is extremely dangerous.</b>
+     * <b>None of these operations writes out the file's metadata.</b>
+     * <b>There are no guarantees that the data will be available after a crash.</b>
 
      * @attention unlike the `sync_file_range` syscall, which uses `off_t` as the `nbytes`
      * argument (which might be a signed 64bit integer), io_uring uses an unsigned 32bit integer.
