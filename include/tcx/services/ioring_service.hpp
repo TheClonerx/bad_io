@@ -114,7 +114,7 @@ public:
      * @return id of the operation
      */
     template <tcx::ioring_completion_handler F>
-    operation_id async_readv(int fd, iovec const *iov, std::size_t len, off_t offset, int flags, F &&f)
+    operation_id async_readv(int fd, iovec const *iov, std::size_t len, off64_t offset, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_readv(&op, fd, iov, len, offset);
@@ -140,12 +140,12 @@ public:
      * @param iov array of io vectors
      * @param len numbers of io vectors
      * @param offset offset into the file, or -1
-     * @param flags see [_man 2 pwritev2_](https://man.archlinux.org/man/pwritev2_.2.en#preadv2()_and_pwritev2())
+     * @param flags see [_man 2 pwritev2_](https://man.archlinux.org/man/pwritev2.2.en#preadv2()_and_pwritev2())
      * @param f callback
      * @return id of the operation
      */
     template <tcx::ioring_completion_handler F>
-    operation_id async_writev(int fd, iovec const *iov, std::size_t len, off_t offset, int flags, F &&f)
+    operation_id async_writev(int fd, iovec const *iov, std::size_t len, off64_t offset, int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_writev(&op, fd, iov, len, offset);
@@ -155,6 +155,17 @@ public:
     }
 
     // fsync(2)
+    /**
+     * @brief synchronize a file's in-core state with it's underlying storage device
+     * @see [_man 2 fsync_](https://man.archlinux.org/man/fsync.2.en)
+     * @see [_man 2 fdatasync_](https://man.archlinux.org/man/fdatasync.2.en)
+
+     * @param fd file descriptor
+     * @param flags either 0 or a bitwise combination of the following constants:
+     * - <b>`IORING_FSYNC_DATASYNC`</b>: behave like `fdatasync`
+     * @param f callback
+     * @return id of the operation
+     */
     template <tcx::ioring_completion_handler F>
     operation_id async_fsync(int fd, int flags, F &&f)
     {
@@ -196,9 +207,22 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
-    // sync_file_range(2)
+    /**
+     * @brief synchronize a file segment's in-core state with it's underlying storage device
+     * @see [_man 2 sync_file_range_](https://man.archlinux.org/man/sync_file_range.2.en)
+
+     * @attention unlike the `sync_file_range` syscall, which uses `off_t` as the `nbytes`
+     * argument (which might be a signed 64bit integer), io_uring uses an unsigned 32bit integer.
+
+     * @param fd file descriptor
+     * @param offset offset into the file
+     * @param nbytes number of bytes to sync
+     * @param flags see [_man 2 sync_file_range_](https://man.archlinux.org/man/sync_file_range.2.en#Some_details)
+     * @param f callback
+     * @return id of the operation
+     */
     template <tcx::ioring_completion_handler F>
-    operation_id async_sync_file_range(int fd, off64_t offset, off64_t nbytes, unsigned flags, F &&f)
+    operation_id async_sync_file_range(int fd, off64_t offset, std::uint32_t nbytes, unsigned int flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_sync_file_range(&op, fd, nbytes, offset, flags);
@@ -496,11 +520,19 @@ public:
 
     void poll();
 
+    /**
+     * @brief returns the number of pending operations
+     */
     [[nodiscard]] std::size_t pending() const noexcept
     {
         return m_pending.load(std::memory_order_acquire);
     }
 
+    /**
+     * @brief destroy the ioring_service object
+
+     * unmaps and closes the io_uring instance
+     */
     ~ioring_service();
 
 private:
