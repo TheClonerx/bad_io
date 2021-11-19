@@ -93,7 +93,26 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
-    // preadv2(2)
+    /**
+     * @brief vectored read
+     * @see [_man 2 preadv2_](https://man.archlinux.org/man/preadv2.2.en)
+
+     * Sequentially read from `fd` into the provided array of `len` io vectors `iov`, starting at `offset`
+
+     * Buffers are processed in array order. This means that async_readv() completely fills `iov[0]` before proceeding to `iov[1]`, and so on.
+     * If there is insufficient data, then not all buffers pointed to by iov may be filled.
+
+     * If `offset` is -1 then the internal file offset is used and its advanced by the number of bytes read.
+     * Otherwise the provided `offset` is used as the offset to read from, and the internal offset is not updated.
+
+     * @param fd file descriptor
+     * @param iov array of io vectors
+     * @param len numbers of io vectors
+     * @param offset offset into the file, or -1
+     * @param flags see [_man 2 pwritev2_](https://man.archlinux.org/man/preadv2.2.en#preadv2()_and_pwritev2())
+     * @param f callback
+     * @return id of the operation
+     */
     template <tcx::ioring_completion_handler F>
     operation_id async_readv(int fd, iovec const *iov, std::size_t len, off_t offset, int flags, F &&f)
     {
@@ -104,7 +123,27 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
-    // pwritev2(2)
+    /**
+     * @brief vectored write
+     * @see [_man 2 pwritev2_](https://man.archlinux.org/man/pwritev2_.2.en)
+
+     * Sequentially writes to `fd` from the provided array of `len` io vectors `iov`, starting at `offset`
+
+     * Buffers are processed in array order. This means that async_writev()
+     * writes out the entire contents of `iov[0]` before proceeding to `iov[1]`,
+     * and so on.
+
+     * If `offset` is -1 then the internal file offset is used and its advanced by the number of bytes written.
+     * Otherwise the provided `offset` is used as the offset to write to, and the internal offset is not updated.
+
+     * @param fd file descriptor
+     * @param iov array of io vectors
+     * @param len numbers of io vectors
+     * @param offset offset into the file, or -1
+     * @param flags see [_man 2 pwritev2_](https://man.archlinux.org/man/pwritev2_.2.en#preadv2()_and_pwritev2())
+     * @param f callback
+     * @return id of the operation
+     */
     template <tcx::ioring_completion_handler F>
     operation_id async_writev(int fd, iovec const *iov, std::size_t len, off_t offset, int flags, F &&f)
     {
