@@ -77,8 +77,8 @@ public:
     /**
      * @brief Does nothing (asynchronously)
      *
-     * @param f Callback
-     * @return ID of the operation
+     * @param f callback
+     * @return id of the operation
      */
     template <tcx::ioring_completion_handler F>
     operation_id async_noop(F &&f)
@@ -204,10 +204,10 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    operation_id async_timeout(__kernel_timespec const *timeout, bool absolute, F &&f)
+    operation_id async_timeout(__kernel_timespec const *timeout, int flags, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_timeout(&op, const_cast<__kernel_timespec *>(timeout), 0, IORING_TIMEOUT_ABS * absolute);
+        io_uring_prep_timeout(&op, const_cast<__kernel_timespec *>(timeout), 0, flags);
 
         return submit(op, std::forward<F>(f));
     }
