@@ -114,6 +114,11 @@ struct use_awaitable_t {
     }
 };
 
+/**
+ * @brief Specifies that an asynchronous operation uses an awaitable.
+ * @ingroup completion_objects
+ * @see tcx::use_awaitable_t
+ */
 inline constexpr auto use_awaitable = use_awaitable_t {};
 
 }

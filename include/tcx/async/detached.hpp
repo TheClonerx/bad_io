@@ -1,6 +1,8 @@
 #ifndef TCX_ASYNC_DETACHED_HPP
 #define TCX_ASYNC_DETACHED_HPP
 
+/** @addtogroup completion_objects Completions */
+
 namespace tcx {
 
 /**
@@ -16,6 +18,7 @@ struct detached_t {
 };
 
 /**
+ * @ingroup completion_objects
  * @brief Specifies that an asynchronous operation is detached. Both the error and result are discarted.
  * @see tcx::detached_t
  */

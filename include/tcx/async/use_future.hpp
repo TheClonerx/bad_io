@@ -53,6 +53,7 @@ private:
 /**
  * @brief Transforms an asynchronous operation to use `std::future<R>`.
  * @see tcx::using_future_t
+ * @see tcx::use_future
  */
 struct use_future_t {
     explicit constexpr use_future_t() noexcept = default;
@@ -64,6 +65,11 @@ struct use_future_t {
     }
 };
 
+/**
+ * @brief Specifies that an asynchronous operation uses an `std::future` object.
+ * @ingroup completion_objects
+ * @see tcx::use_future_t
+ */
 inline constexpr auto use_future = use_future_t {};
 
 }

@@ -24,6 +24,7 @@ struct detached_throw_t {
 };
 
 /**
+ * @ingroup completion_objects
  * @brief Specifies that an asynchronous operation is detached.
  * In case of an error, an `std::system_error` is thrown with the value of the error.
  * @see tcx::detached_throw_t
