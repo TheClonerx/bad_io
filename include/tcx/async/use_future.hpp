@@ -29,11 +29,11 @@ struct using_future_t {
      * @brief Sets the result of the operation to the promise
 
      * In case of an error, an `std::system_error` exception is set with the value of `error`.
-     * Otherwise `result` is moved into the promise.
+     * Otherwise `value` is moved into the promise.
      * @param error
-     * @param result
+     * @param value
      */
-    void operator()(std::error_code error, R result)
+    void operator()(std::error_code error, R value)
     {
         if (error) {
             try {
@@ -42,7 +42,7 @@ struct using_future_t {
                 m_promise.set_exception(std::current_exception());
             }
         } else {
-            m_promise.set_value(std::move(result));
+            m_promise.set_value(std::move(value));
         }
     }
 
@@ -52,6 +52,12 @@ private:
 
 /**
  * @brief Transforms an asynchronous operation to use `std::future<R>`.
+
+ * The use_future_t class is used to indicate that an asynchronous operation
+ * should return a `std::future<R>` object. A `tcx::use_future_t` object may be passed as
+ * a completion handler to an asynchronous operation, typically using the
+ * special value `tcx::use_future`.
+
  * @see tcx::using_future_t
  * @see tcx::use_future
  */
