@@ -30,6 +30,9 @@ namespace impl {
     };
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_write_operation::result_type>
 auto async_write(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, void const *buf, std::size_t len, off_t offset, F &&f)
@@ -37,6 +40,9 @@ auto async_write(E &executor, tcx::ioring_service &service, tcx::native_handle_t
     return tcx::impl::wrap_op<tcx::impl::ioring_write_operation>::call(executor, service, std::forward<F>(f), fd, buf, len, offset);
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_write_operation::result_type>
 auto async_write(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, void const *buf, std::size_t len, F &&f)

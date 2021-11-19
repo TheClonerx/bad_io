@@ -15,15 +15,19 @@
 
 #include <tcx/native/handle.hpp>
 
+/** @addtogroup ioring_service Linux's io_uring */
+
 namespace tcx {
 
 /**
  * @brief Specifies that a type can be used as a completion handler in `tcx::ioring_service`
+ * @ingroup ioring_service
  */
 template <typename F>
 concept ioring_completion_handler = std::is_invocable_v<F, std::int32_t>;
 
 /**
+ * @ingroup ioring_service
  * @brief This class wraps an instance of Linux's io_uring
  */
 class ioring_service {

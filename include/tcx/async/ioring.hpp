@@ -1,5 +1,6 @@
 /**
  * @brief Convenience header to include all of the tcx::iouring_service operations
+ * @ingroup ioring_service
  */
 
 #include <tcx/async/ioring/close.hpp>

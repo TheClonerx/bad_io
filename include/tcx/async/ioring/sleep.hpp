@@ -31,6 +31,13 @@ namespace impl {
     };
 }
 
+/**
+ * @ingroup ioring_service
+ * @param executor
+ * @param service
+ * @param duration relative to std::steady_clock
+ * @param f completion
+ */
 template <typename E, typename F, typename Rep, typename Ratio>
 requires tcx::completion_handler<F, tcx::impl::ioring_timeout_operation::result_type>
 auto async_sleep_for(E &executor, tcx::ioring_service &service, std::chrono::duration<Rep, Ratio> duration, F &&f)
@@ -46,6 +53,9 @@ auto async_sleep_for(E &executor, tcx::ioring_service &service, std::chrono::dur
     return tcx::impl::wrap_op<tcx::impl::ioring_timeout_operation>::call(executor, service, std::forward<F>(f), 0, std::move(spec));
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F, typename Dur>
 requires tcx::completion_handler<F, tcx::impl::ioring_timeout_operation::result_type>
 auto async_sleep_until(E &executor, tcx::ioring_service &service, std::chrono::time_point<std::chrono::steady_clock, Dur> time, F &&f)
@@ -62,6 +72,9 @@ auto async_sleep_until(E &executor, tcx::ioring_service &service, std::chrono::t
     return tcx::impl::wrap_op<tcx::impl::ioring_timeout_operation>::call(executor, service, std::forward<F>(f), IORING_TIMEOUT_ABS, std::move(spec));
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F, typename Dur>
 requires tcx::completion_handler<F, tcx::impl::ioring_timeout_operation::result_type>
 auto async_sleep_until(E &executor, tcx::ioring_service &service, std::chrono::time_point<std::chrono::system_clock, Dur> time, F &&f)

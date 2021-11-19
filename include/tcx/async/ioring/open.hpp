@@ -33,6 +33,9 @@ namespace impl {
     };
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
 auto async_open(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
@@ -40,6 +43,9 @@ auto async_open(E &executor, tcx::ioring_service &service, char const *path, int
     return tcx::impl::wrap_op<tcx::impl::ioring_open_operation>::call(executor, service, std::forward<F>(f), path, flags, mode);
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
 auto async_open(E &executor, tcx::ioring_service &service, char const *path, char const *mode, F &&f)

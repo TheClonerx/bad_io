@@ -29,6 +29,9 @@ namespace impl {
 
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_close_operation::result_type>
 auto async_close(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, F &&f)

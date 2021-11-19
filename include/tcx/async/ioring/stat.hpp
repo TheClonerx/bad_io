@@ -51,6 +51,9 @@ namespace impl {
 
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_statat_operation::result_type>
 auto async_stat(E &executor, tcx::ioring_service &service, tcx::native_path_char_type const *path, struct ::stat *statbuf, F &&f)
@@ -58,6 +61,9 @@ auto async_stat(E &executor, tcx::ioring_service &service, tcx::native_path_char
     return tcx::impl::wrap_op<tcx::impl::ioring_statat_operation>::call(executor, service, std::forward<F>(f), AT_FDCWD, path, statbuf, 0);
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_statat_operation::result_type>
 auto async_statat(E &executor, tcx::ioring_service &service, tcx::native_handle_type dir_fd, tcx::native_path_char_type const *path, struct ::stat *statbuf, int flags, F &&f)

@@ -28,6 +28,9 @@ namespace impl {
     };
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_poll_operation::result_type>
 auto async_poll(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, std::uint32_t events, F &&f)
