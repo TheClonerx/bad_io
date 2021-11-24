@@ -175,18 +175,38 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
-    // epoll_wait(2)
+    /**
+     * @brief poll a file for events
+     * @see [_man 2 epoll_ctl_](https://man.archlinux.org/man/epoll_ctl.2.en)
+
+     * @attention
+     * While io_uring allows multi-shot mode, this interface only allows for one-shot mode.
+     * <b>There's no way to enable multi-shot mode.</b>
+
+     * @param fd file descriptor to listen events from
+     * @param events a bit mask composed by ORing together zero or more of the `EPOLL*` constants
+     * @param f callback
+     * @return id of the operation
+     */
     template <tcx::ioring_completion_handler F>
     operation_id async_poll_add(int fd, std::uint32_t events, F &&f)
     {
-
         io_uring_sqe op {};
         io_uring_prep_poll_add(&op, fd, events);
 
         return submit(op, std::forward<F>(f));
     }
 
-    // epoll_wait(2)
+    /**
+     * @brief remove an existing poll request
+
+     * If found, the operation will complete with the value of 0.
+     * If not found, the operation will complete with the value of `-ENOENT`, or `-EALREADY` if the poll request was in the process of completing already.
+
+     * @param operation id of the polling operation to remove
+     * @param f callback
+     * @return id of the operation
+     */
     template <tcx::ioring_completion_handler F>
     operation_id async_poll_remove(operation_id operation, F &&f)
     {
@@ -197,12 +217,26 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
-    // epoll_ctl(2)
+    /**
+     * @brief add, update or remove entries in the interest list of the epoll instance
+     * @see [_man 2 epoll_ctl_](https://man.archlinux.org/man/epoll_ctl.2.en)
+     * @see [_man 7 epoll_](https://man.archlinux.org/man/epoll.7.en)
+
+     * @param epoll_fd file descriptor of the epoll instance
+     * @param op operation to be performed, must be one of the folling constants:
+     * - <b>EPOLL_CTL_ADD</b>: add an entry to the interest list of the epoll file descriptor,
+     * - <b>EPOLL_CTL_MOD</b>: update the settings associated with `fd` in the interest list to the new settings specified in `event`.
+     * - <b>EPOLL_CTL_DEL</b>: remove the target file descriptor fd from the interest list. The `event` argument is ignored and can be <b>`NULL`</b>.
+     * @param fd file descriptor to perform the operations on
+     * @param event events to listen to
+     * @param f callback
+     * @return id of the operation
+     */
     template <tcx::ioring_completion_handler F>
-    operation_id async_epoll_ctl(int epoll_fd, int op, int fd, epoll_event *event, F &&f)
+    operation_id async_epoll_ctl(int epoll_fd, int op, int fd, epoll_event const *event, F &&f)
     {
         io_uring_sqe operation {};
-        io_uring_prep_epoll_ctl(&operation, epoll_fd, fd, op, event);
+        io_uring_prep_epoll_ctl(&operation, epoll_fd, fd, op, const_cast<epoll_event *>(event));
 
         return submit(op, std::forward<F>(f));
     }
