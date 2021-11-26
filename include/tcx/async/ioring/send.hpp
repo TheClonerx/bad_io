@@ -28,25 +28,41 @@ namespace impl {
     };
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
+requires tcx::completion_handler<F, tcx::impl::ioring_send_operation::result_type>
 auto async_send(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, void const *buf, std::size_t buf_len, int flags, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_send_operation>::call(executor, service, std::forward<F>(f), fd, buf, buf_len, flags);
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
+requires tcx::completion_handler<F, tcx::impl::ioring_send_operation::result_type>
 auto async_send(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, void const *buf, std::size_t buf_len, F &&f)
 {
     return tcx::async_send(executor, service, fd, buf, buf_len, 0, std::forward<F>(f));
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F, std::size_t Extent>
+requires tcx::completion_handler<F, tcx::impl::ioring_send_operation::result_type>
 auto async_send(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, std::span<std::byte const, Extent> bytes, int flags, F &&f)
 {
     return tcx::async_send(executor, service, fd, bytes.data(), bytes.size(), flags, std::forward<F>(f));
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F, std::size_t Extent>
+requires tcx::completion_handler<F, tcx::impl::ioring_send_operation::result_type>
 auto async_send(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, std::span<std::byte const, Extent> bytes, F &&f)
 {
     return tcx::async_send(executor, service, fd, bytes.data(), bytes.size(), 0, std::forward<F>(f));

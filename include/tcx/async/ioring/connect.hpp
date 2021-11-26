@@ -45,24 +45,28 @@ namespace impl {
 }
 
 template <typename E, typename F>
+requires tcx::completion_handler<F, tcx::impl::ioring_connect_operation::result_type>
 auto async_connect(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, sockaddr const *addr, std::size_t const *addr_len, int flags, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_connect_operation>::call(executor, service, std::forward<F>(f), fd, addr, addr_len, flags);
 }
 
 template <typename E, typename F>
+requires tcx::completion_handler<F, tcx::impl::ioring_connect_operation::result_type>
 auto async_connect(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, sockaddr const *addr, std::size_t const *addr_len, F &&f)
 {
     return tcx::async_connect(executor, service, fd, addr, addr_len, 0, std::forward<F>(f));
 }
 
 template <typename E, typename F>
+requires tcx::completion_handler<F, tcx::impl::ioring_connect_operation::result_type>
 auto async_connect(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, int flags, F &&f)
 {
     return tcx::async_connect(executor, service, fd, nullptr, nullptr, flags, std::forward<F>(f));
 }
 
 template <typename E, typename F>
+requires tcx::completion_handler<F, tcx::impl::ioring_connect_operation::result_type>
 auto async_connect(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, F &&f)
 {
     return tcx::async_connect(executor, service, fd, nullptr, nullptr, 0, std::forward<F>(f));

@@ -35,7 +35,7 @@ namespace impl {
  * @ingroup ioring_service
  * @param executor
  * @param service
- * @param duration relative to std::steady_clock
+ * @param duration relative to std::chrono::steady_clock
  * @param f completion
  */
 template <typename E, typename F, typename Rep, typename Ratio>
@@ -90,6 +90,8 @@ auto async_sleep_until(E &executor, tcx::ioring_service &service, std::chrono::t
 
     return tcx::impl::wrap_op<tcx::impl::ioring_timeout_operation>::call(executor, service, std::forward<F>(f), IORING_TIMEOUT_ABS | IORING_TIMEOUT_REALTIME, std::move(spec));
 }
+
+// there's no standard clock for CLOCK_BOOTTIME
 
 }
 

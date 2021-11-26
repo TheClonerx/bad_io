@@ -29,25 +29,41 @@ namespace impl {
     };
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
+requires tcx::completion_handler<F, tcx::impl::ioring_recv_operation::result_type>
 auto async_recv(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, void *buf, std::size_t buf_len, int flags, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_recv_operation>::call(executor, service, std::forward<F>(f), fd, buf, buf_len, flags);
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F>
+requires tcx::completion_handler<F, tcx::impl::ioring_recv_operation::result_type>
 auto async_recv(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, void *buf, std::size_t buf_len, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_recv_operation>::call(executor, service, std::forward<F>(f), fd, buf, buf_len);
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F, std::size_t Extent>
+requires tcx::completion_handler<F, tcx::impl::ioring_recv_operation::result_type>
 auto async_recv(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, std::span<std::byte, Extent> bytes, int flags, F &&f)
 {
     return tcx::async_recv(executor, service, fd, bytes.data(), bytes.size(), flags, std::forward<F>(f));
 }
 
+/**
+ * @ingroup ioring_service
+ */
 template <typename E, typename F, std::size_t Extent>
+requires tcx::completion_handler<F, tcx::impl::ioring_recv_operation::result_type>
 auto async_recv(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, std::span<std::byte, Extent> bytes, F &&f)
 {
     return tcx::async_recv(executor, service, fd, bytes.data(), bytes.size(), 0, std::forward<F>(f));
