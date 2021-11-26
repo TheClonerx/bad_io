@@ -86,7 +86,7 @@ auto async_open(E &executor, tcx::ioring_service &service, char const *path, cha
     else
         flags |= (O_RDONLY | 0) * has_read | (O_WRONLY | O_CREAT | O_TRUNC) * has_write | (O_WRONLY | O_CREAT | O_APPEND) * has_append;
 
-    return async_open(executor, service, path, flags, DEFFILEMODE, std::forward<F>(f));
+    return tcx::async_open(executor, service, path, flags, DEFFILEMODE, std::forward<F>(f));
 }
 
 }
