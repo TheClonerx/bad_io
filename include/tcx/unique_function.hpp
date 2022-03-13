@@ -53,29 +53,43 @@ public:
     }
 
     template <typename F>
-    explicit unique_function(F &&f) noexcept(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)> || tcx::impl::is_reference_wrapper<F>::value) requires(std::is_invocable_r_v<R, F, Args...>)
-    {
-        if constexpr (tcx::impl::is_reference_wrapper<std::remove_cvref_t<F>>::value) {
-            m_state.data = reinterpret_cast<void *>(&f.get());
-            m_state.call = +[](unique_function *self, Args &&...args) -> result_type {
+    explicit unique_function(std::reference_wrapper<F> ref) noexcept
+        requires std::is_invocable_v<F, Args...>
+        : m_state {
+            .vtable = nullptr,
+            .call = +[](unique_function *self, Args &&...args) -> result_type {
                 auto &ref = *reinterpret_cast<typename F::type *>(self->m_state.data);
                 if constexpr (std::is_void_v<result_type>)
-                    (void)std::invoke(ref, std::forward<Args>(args)...);
+                    return (void)std::invoke(ref, std::forward<Args>(args)...);
                 else
                     return std::invoke(ref, std::forward<Args>(args)...);
-            };
-        } else if constexpr (std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>) { // a function pointer/reference or a stateless lambda was passed
-            m_state.data = reinterpret_cast<void *>(static_cast<result_type (*)(Args...)>(f));
-            m_state.call = +[](unique_function *self, Args &&...args) -> result_type {
+            },
+            .data = &ref.get()
+        }
+    {
+    }
+
+    template <typename F>
+    explicit unique_function(F &&f) noexcept
+        requires(std::is_convertible_v<std::remove_cvref_t<F>, result_type (*)(Args...)>)
+        : m_state {
+            .vtable = nullptr,
+            .call = +[](unique_function *self, Args &&...args) -> result_type {
                 auto *pfn = reinterpret_cast<result_type (*)(Args...)>(self->m_state.data);
                 if constexpr (std::is_void_v<result_type>)
                     return (void)std::invoke(pfn, std::forward<Args>(args)...);
                 else
                     return std::invoke(pfn, std::forward<Args>(args)...);
-            };
-        } else {
-            std::construct_at(this, std::in_place_type<F>, std::forward<F>(f));
+            },
+            .data = reinterpret_cast<void *>(static_cast<result_type (*)(Args...)>(f))
         }
+    {
+    }
+
+    template <typename F>
+    explicit unique_function(F &&f) requires(std::is_invocable_v<F, Args...> &&std::is_constructible_v<std::remove_cvref_t<F>, F &&>)
+        : unique_function(std::in_place_type<std::remove_cvref_t<F>>, std::forward<F>(f))
+    {
     }
 
     template <typename T, typename... CArgs>
