@@ -99,7 +99,7 @@ public:
                     return std::invoke(f, std::forward<Args>(args)...);
             };
 
-            static auto const table = []() {
+            constinit static auto const table = []() {
                 virtual_table result {};
                 result.destroy = +[](void *data) noexcept -> void {
                     auto p = reinterpret_cast<std::remove_cvref_t<T> *>(data);
@@ -127,7 +127,7 @@ public:
                     return std::invoke(f, std::forward<Args>(args)...);
             };
 
-            static auto const table = []() {
+            constinit static auto const table = []() {
                 virtual_table result;
                 result.destroy = +[](void *data) noexcept -> void {
                     auto *obj = reinterpret_cast<std::remove_cvref_t<T> *>(data);
