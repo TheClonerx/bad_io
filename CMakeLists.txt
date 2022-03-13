@@ -40,7 +40,7 @@ if (WITH_URING)
     find_package(liburing REQUIRED)
 endif()
 
-find_package(concurrentqueue REQUIRED)
+find_package(TBB REQUIRED)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -53,7 +53,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
-target_link_libraries(${PROJECT_NAME} PUBLIC concurrentqueue::concurrentqueue)
+target_link_libraries(${PROJECT_NAME} PUBLIC TBB::tbb)
 
 if (WITH_URING)
     target_link_libraries(${PROJECT_NAME} PUBLIC liburing::liburing)

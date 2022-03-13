@@ -1,7 +1,7 @@
 #ifndef TCX_SYNCHRONIZED_EXECUTION_CONTEXT_HPP
 #define TCX_SYNCHRONIZED_EXECUTION_CONTEXT_HPP
 
-#include <moodycamel/concurrentqueue.h>
+#include <oneapi/tbb/concurrent_queue.h>
 
 #include <tcx/unique_function.hpp>
 
@@ -22,7 +22,7 @@ public:
     template <typename F>
     void post(F &&f) requires(std::is_invocable_r_v<void, F>)
     {
-        m_function_queue.enqueue(function_storage(std::forward<F>(f)));
+        m_function_queue.emplace(std::forward<F>(f));
     }
 
     [[nodiscard]] std::size_t run();
@@ -30,7 +30,7 @@ public:
     ~synchronized_execution_context() = default;
 
 private:
-    moodycamel::ConcurrentQueue<function_storage> m_function_queue;
+    oneapi::tbb::concurrent_queue<function_storage> m_function_queue;
 };
 
 }

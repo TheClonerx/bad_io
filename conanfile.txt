@@ -1,6 +1,5 @@
 [requires]
-concurrentqueue/1.0.3
-
+onetbb/2021.3.0
 liburing/2.1
 
 [build_requires]

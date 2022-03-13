@@ -18,7 +18,7 @@ std::size_t tcx::synchronized_execution_context::run()
     std::size_t count = 0;
     function_storage f;
     for (;;) {
-        if (!m_function_queue.try_dequeue(f))
+        if (!m_function_queue.try_pop(f))
             break;
         f();
         ++count;
