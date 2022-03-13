@@ -33,6 +33,31 @@ void read_everything(tcx::unsynchronized_execution_context &ctx, tcx::ioring_ser
     }
 }
 
+template <typename... Runners>
+void run_until_complete(Runners &...runners)
+{
+    // this looks cryptict
+    for (;;) {
+        bool keep_running = false;
+        ([&runner = runners, &keep_running]() {
+            if (runner.pending()) {
+                try {
+                    if constexpr (requires { runner.poll(); })
+                        runner.poll();
+                    else
+                        runner.run();
+                } catch (std::exception &e) {
+                    std::fprintf(stderr, "uncaught exception: %s\n", e.what());
+                }
+                keep_running = true;
+            }
+        }(),
+            ...);
+        if (!keep_running)
+            break;
+    }
+}
+
 int main()
 {
     tcx::unsynchronized_execution_context ctx;
@@ -53,24 +78,5 @@ int main()
         });
     });
 
-    for (;;) {
-        bool const io_pending = io_service.pending();
-        bool const tasks_pending = ctx.pending();
-
-        if (!(io_pending || tasks_pending))
-            break;
-
-        if (io_pending)
-            try {
-                io_service.poll();
-            } catch (std::exception const &e) {
-                std::fprintf(stderr, "error: %s\n", e.what());
-            }
-        if (ctx.pending())
-            try {
-                ctx.run();
-            } catch (std::exception const &e) {
-                std::fprintf(stderr, "error: %s\n", e.what());
-            }
-    }
+    run_until_complete(ctx, io_service);
 }
