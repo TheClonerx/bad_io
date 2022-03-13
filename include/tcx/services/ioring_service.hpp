@@ -78,6 +78,14 @@ public:
         return m_uring.ring_fd;
     }
 
+    template <typename F>
+    void post(F &&f) requires std::is_invocable_v<F>
+    {
+        async_noop([f = std::move(f)](std::uint32_t res) {
+            f();
+        });
+    }
+
     /**
      * @brief Does nothing (asynchronously)
      *
@@ -625,6 +633,7 @@ private:
     std::atomic<std::size_t> m_pending;
 #endif
 };
+
 }
 
 #endif

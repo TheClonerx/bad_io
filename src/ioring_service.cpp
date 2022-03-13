@@ -44,7 +44,9 @@ void tcx::ioring_service::complete(io_uring_cqe const &cqe)
 
 void tcx::ioring_service::poll()
 {
-    // io_uring actually allows waiting with no pending operations, so you can submit in one thread and wait in another
+    // io_uring actually allows waiting with no pending operations,
+    // so you can submit in one thread and wait in another;
+    // working like a synchronization barrier
 
     int consumed = io_uring_submit_and_wait(&m_uring, 1);
     if (consumed < 0)
