@@ -1,41 +1,46 @@
 #include <tcx/services/epoll_service.hpp>
 
+void tcx::epoll_service::poll_remove(int fd)
+{
+    if (epoll_ctl(m_handle, EPOLL_CTL_DEL, fd, nullptr) < 0)
+        throw std::system_error(errno, std::system_category());
+
+    if (data_map::accessor accessor; m_data.find(accessor, fd)) {
+        struct Completion {
+            void (*pfn_invoke)(Completion *self, int);
+            int fd;
+        };
+
+        auto *ptr = reinterpret_cast<Completion *>(accessor->second.get());
+        ptr->pfn_invoke(ptr, -ECANCELED);
+        m_data.erase(accessor);
+    }
+}
+
 void tcx::epoll_service::poll()
 {
-    if (m_completions.empty())
-        return;
-
-    for (auto &completion : m_completions) {
-        if (!completion.error)
-            continue;
-        completion.fd = -1;
-        auto f = std::move(completion.func);
-        f(std::move(completion.error), 0);
-    }
-
     sigset_t prev {};
-    m_events.resize(m_completions.size());
-    int result = epoll_pwait(m_handle, m_events.data(), m_events.size(), -1, &prev);
+    std::vector<epoll_event> events;
+    int result = epoll_pwait(m_handle, events.data(), events.size(), -1, &prev);
     if (result < 0)
         throw std::system_error(errno, std::system_category(), "epoll_pwait");
-
-    for (int i = 0; i < result; ++i) {
-        auto it = std::find_if(m_completions.begin(), m_completions.end(), [fd = m_events[i].data.fd](Completion const &completion) {
-            return completion.fd == fd;
-        });
-        if (it != m_completions.end()) {
-            it->fd = -1;
-            auto f = std::move(it->func);
-            f(std::move(it->error), 0);
-        }
+    for (auto const &event : events) {
+        struct Completion {
+            void (*pfn_invoke)(Completion *self, int err_nr);
+            int fd;
+        };
+        auto *ptr = reinterpret_cast<Completion *>(event.data.ptr);
+        ptr->pfn_invoke(ptr, event.events);
+        if (data_map::accessor accessor; m_data.find(accessor, ptr->fd))
+            m_data.erase(accessor);
     }
-    std::erase_if(m_completions, [](Completion const &completion) {
-        return completion.fd == -1;
-    });
 }
+
+#include <cassert>
 
 tcx::epoll_service::~epoll_service()
 {
+    assert(!pending() && "tried to destroy an epoll instance with pending operations");
     if (m_handle != tcx::invalid_handle) {
         ::close(m_handle);
         m_handle = tcx::invalid_handle;
