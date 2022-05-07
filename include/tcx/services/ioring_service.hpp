@@ -81,8 +81,8 @@ public:
     template <typename F>
     void post(F &&f) requires std::is_invocable_v<F>
     {
-        async_noop([f = std::move(f)](std::uint32_t res) {
-            f();
+        async_noop([f = std::move(f)](std::uint32_t) mutable {
+            (void)f();
         });
     }
 

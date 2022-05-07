@@ -29,7 +29,7 @@ private:
     {
         if constexpr (std::is_void_v<typename Op::result_type>) {
             if constexpr (std::is_invocable_v<F, std::variant<std::error_code, std::monostate>>) {
-                Op::call(executor, service, std::forward<Args>(args)..., [f = std::forward<F>(f)](std::error_code e) {
+                Op::call(executor, service, std::forward<Args>(args)..., [f = std::forward<F>(f)](std::error_code e) mutable {
                     if (e)
                         f(std::variant<std::error_code, std::monostate>(std::in_place_index<0>, e));
                     else
@@ -40,11 +40,11 @@ private:
             }
         } else {
             if constexpr (std::is_invocable_v<F, std::variant<std::error_code, typename Op::result_type>>) {
-                Op::call(executor, service, std::forward<Args>(args)..., [f = std::forward<F>(f)](std::error_code e, typename Op::result_type result) {
+                Op::call(executor, service, std::forward<Args>(args)..., [f = std::forward<F>(f)](std::error_code e, typename Op::result_type result) mutable {
                     if (e)
                         f(std::variant<std::error_code, typename Op::result_type>(std::in_place_index<0>, e));
                     else
-                        f(std::variant<std::error_code, typename Op::result_type>(std::in_place_index<1>, result));
+                        f(std::variant<std::error_code, typename Op::result_type>(std::in_place_index<1>, std::move(result)));
                 });
             } else {
                 Op::call(executor, service, std::forward<Args>(args)..., std::forward<F>(f));

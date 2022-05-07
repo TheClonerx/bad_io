@@ -28,11 +28,19 @@ tcx::async_open(ctx, io_service, "/dev/null", "rb", [&ctx, &io_service](std::err
 ```
 this will post the completion to an [asio::system_executor](https://think-async.com/Asio/asio-1.20.0/doc/asio/reference/system_executor.html), and the lambda will be executed in an arbitrary thread.
 
+Some services themselves can be used as executors:
+```cpp
+tcx::ioring_service io_service;
+io_service.post([](){
+    std::puts("Hello World");
+});
+```
+
 # TODO
 - [X] Implement arguments for `tcx::function_view`
 - [X] Implement SBO for `tcx::unique_functiom`
-- [ ] ~~Implement allocator aware move operations for `tcx::unique_function`~~
-- [ ] ~~Make the executor fully allocator aware~~
+- ~~[ ] Implement allocator aware move operations for `tcx::unique_function`~~
+- ~~[ ] Make the executor fully allocator aware~~
 - [ ] Learn about how overlapping IO works on Windows
 - Implement following IO services:
     - [X] `tcx::epoll_service`
