@@ -617,16 +617,16 @@ private:
             }
         }
 
-        m_pending.fetch_add(1, std::memory_order_release);
-
         operation.user_data = reinterpret_cast<std::uintptr_t>(p.release());
         *sqe = operation;
+
+        m_pending.fetch_add(1, std::memory_order_release);
 
         return operation.user_data;
     }
 
 private:
-    io_uring m_uring { {}, {}, {}, /*fd*/ -1, {}, {} };
+    io_uring m_uring { .ring_fd = -1 };
 #ifdef __cpp_lib_atomic_lock_free_type_aliases
     std::atomic_unsigned_lock_free m_pending;
 #else
