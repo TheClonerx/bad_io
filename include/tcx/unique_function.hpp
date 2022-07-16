@@ -84,7 +84,7 @@ public:
     template <typename T, typename... CArgs>
     unique_function(std::in_place_type_t<T>, CArgs &&...args) requires(std::is_invocable_v<T, Args...> &&std::is_constructible_v<T, CArgs...>)
     {
-        void *const pointer = [&]() {
+        void *const pointer = [&]() -> void * {
             // in order for the type to be stored inline it requires to be nothrow move constructible
             // so that unique_function's move operations are noexcept
             if constexpr (std::is_move_constructible_v<T> && std::is_nothrow_move_constructible_v<T>) {
@@ -101,15 +101,15 @@ public:
             std::construct_at(reinterpret_cast<std::remove_cvref_t<T> *>(pointer), std::forward<CArgs>(args)...);
 
             constinit static virtual_table const vtable {
-                .destroy = [](void *data) noexcept -> void {
-                    auto p = reinterpret_cast<std::remove_cvref_t<T> *>(data);
-                    std::destroy_at(p);
-                },
                 .move_construct = [](void *lhs, void *rhs) noexcept -> void {
                     auto *first = reinterpret_cast<std::remove_cvref_t<T> *>(lhs);
                     auto *second = reinterpret_cast<std::remove_cvref_t<T> *>(rhs);
                     std::construct_at(first, std::move(*second));
                 },
+                .destroy = [](void *data) noexcept -> void {
+                    auto p = reinterpret_cast<std::remove_cvref_t<T> *>(data);
+                    std::destroy_at(p);
+                }
             };
 
             m_state = {
@@ -125,14 +125,14 @@ public:
             };
         } else {
             constinit static virtual_table const vtable {
-                .destroy = +[](void *data) noexcept -> void {
-                    auto *obj = reinterpret_cast<std::remove_cvref_t<T> *>(data);
-                    delete obj;
-                },
                 .move_construct = +[](void *lhs, void *rhs) noexcept -> void {
                     auto *first = reinterpret_cast<std::remove_cvref_t<T> *>(lhs);
                     auto *second = reinterpret_cast<std::remove_cvref_t<T> *>(rhs);
                     std::construct_at(first, std::move(*second));
+                },
+                .destroy = +[](void *data) noexcept -> void {
+                    auto *obj = reinterpret_cast<std::remove_cvref_t<T> *>(data);
+                    delete obj;
                 },
             };
 
