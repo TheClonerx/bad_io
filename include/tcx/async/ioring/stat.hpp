@@ -1,7 +1,9 @@
 #ifndef TCX_ASYNC_IORING_STAT_HPP
 #define TCX_ASYNC_IORING_STAT_HPP
 
+#include <functional>
 #include <memory>
+
 #include <tcx/async/concepts.hpp>
 #include <tcx/async/wrap_op.hpp>
 #include <tcx/native/handle.hpp>
@@ -18,6 +20,8 @@ namespace impl {
         template <typename E, typename F>
         static void call(E &executor, tcx::ioring_service &service, int dir_fd, char const *pathname, struct ::stat *statbuf, int flags, F &&f)
         {
+            using variant_type = std::variant<std::error_code, std::monostate>;
+
             auto statxbuf = std::make_unique<struct ::statx>();
             auto *const p = statxbuf.get();
             service.async_statx(dir_fd, pathname, flags, STATX_BASIC_STATS, p, [statxbuf = std::move(statxbuf), statbuf, &executor, f = std::forward<F>(f)](std::int32_t result) mutable {
@@ -41,21 +45,22 @@ namespace impl {
 
                 executor.post([f = std::move(f), result]() mutable {
                     if (result < 0)
-                        f(std::error_code { -result, std::system_category() });
+                        std::invoke(f, variant_type(std::in_place_index<0>, result, std::system_category()));
                     else
-                        f(std::error_code {});
+                        std::invoke(f, variant_type(std::in_place_index<1>));
                 });
             });
         }
     };
 
-}
+} // namespace impl
 
 /**
  * @ingroup ioring_service
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_statat_operation::result_type>
+
 auto async_stat(E &executor, tcx::ioring_service &service, tcx::native_path_char_type const *path, struct ::stat *statbuf, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_statat_operation>::call(executor, service, std::forward<F>(f), AT_FDCWD, path, statbuf, 0);
@@ -66,11 +71,12 @@ auto async_stat(E &executor, tcx::ioring_service &service, tcx::native_path_char
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_statat_operation::result_type>
+
 auto async_statat(E &executor, tcx::ioring_service &service, tcx::native_handle_type dir_fd, tcx::native_path_char_type const *path, struct ::stat *statbuf, int flags, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_statat_operation>::call(executor, service, std::forward<F>(f), dir_fd, path, statbuf, flags);
 }
 
-}
+} // namespace tcx
 
 #endif

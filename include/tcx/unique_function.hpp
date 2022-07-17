@@ -36,6 +36,7 @@ private:
 
 public:
     unique_function() noexcept = default;
+
     unique_function(std::nullptr_t) noexcept
         : unique_function()
     {
@@ -151,12 +152,14 @@ public:
     }
 
     unique_function(unique_function const &) = delete;
+
     unique_function(unique_function &&other) noexcept
     {
         swap(*this, other);
     }
 
     unique_function &operator=(unique_function const &) = delete;
+
     unique_function &operator=(unique_function &&other) noexcept
     {
         swap(*this, other);
@@ -229,5 +232,6 @@ private:
 static_assert(alignof(unique_function<void()>) == 64, "unique_function alignment must be 64 bytes");
 static_assert(sizeof(unique_function<void()>) == 64, "unique_function size must be 64 bytes");
 
-}
+} // namespace tcx
+
 #endif

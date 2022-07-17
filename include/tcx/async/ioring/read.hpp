@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <span>
+#include <system_error>
 #include <utility>
 
 #include <tcx/async/concepts.hpp>
@@ -19,12 +20,14 @@ namespace impl {
         template <typename E, typename F>
         static void call(E &executor, tcx::ioring_service &service, tcx::native_handle_type fd, void *buf, std::size_t len, off_t offset, F &&f)
         {
+            using variant_type = std::variant<std::error_code, result_type>;
+
             service.async_read(fd, buf, len, offset, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
                 executor.post([f = std::move(f), result]() mutable {
                     if (result < 0)
-                        f(std::error_code { -result, std::system_category() }, static_cast<std::size_t>(0));
+                        f(variant_type(std::in_place_index<0>, -result, std::system_category()));
                     else
-                        f(std::error_code {}, static_cast<std::size_t>(result));
+                        f(variant_type(std::in_place_index<1>, static_cast<std::size_t>(result)));
                 });
             });
         }

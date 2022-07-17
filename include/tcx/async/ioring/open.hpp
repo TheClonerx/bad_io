@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <system_error>
 #include <type_traits>
+#include <utility>
+#include <variant>
 
 #include <fcntl.h>
 
@@ -21,23 +23,26 @@ namespace impl {
         template <typename E, typename F>
         static void call(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
         {
+            using variant_type = std::variant<std::error_code, result_type>;
+
             service.async_open(path, flags, mode, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
                 executor.post([f = std::move(f), result]() mutable {
                     if (result < 0)
-                        f(std::error_code { -result, std::system_category() }, tcx::invalid_handle);
+                        f(variant_type(std::in_place_index<0>, -result, std::system_category()));
                     else
-                        f(std::error_code {}, result);
+                        f(variant_type(std::in_place_index<1>, result));
                 });
             });
         }
     };
-}
+} // namespace impl
 
 /**
  * @ingroup ioring_service
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
+
 auto async_open(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_open_operation>::call(executor, service, std::forward<F>(f), path, flags, mode);
@@ -48,10 +53,11 @@ auto async_open(E &executor, tcx::ioring_service &service, char const *path, int
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
+
 auto async_open(E &executor, tcx::ioring_service &service, char const *path, char const *mode, F &&f)
 {
     bool has_plus = false, has_read = false, has_write = false, has_append = false, has_cloexec = false, has_exclusive = false;
-    for (auto *it = mode; *it && *it != ','; ++it) {
+    for (auto const *it = mode; *it && *it != ','; ++it) {
         switch (*it) {
         case '+':
             has_plus = true;
@@ -78,7 +84,7 @@ auto async_open(E &executor, tcx::ioring_service &service, char const *path, cha
     }
 
     if (has_read + has_write + has_append != 1)
-        throw std::invalid_argument("Invalid mode was provided");
+        throw std::invalid_argument("invalid mode was provided");
 
     int flags = O_CLOEXEC * has_cloexec | O_EXCL * has_exclusive;
     if (has_plus)
@@ -89,6 +95,6 @@ auto async_open(E &executor, tcx::ioring_service &service, char const *path, cha
     return tcx::async_open(executor, service, path, flags, DEFFILEMODE, std::forward<F>(f));
 }
 
-}
+} // namespace tcx
 
 #endif

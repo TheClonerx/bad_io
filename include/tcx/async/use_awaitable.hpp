@@ -2,9 +2,9 @@
 #define TCX_ASYNC_USE_AWAITABLE_HPP
 
 #include <coroutine>
-
 #include <memory>
 #include <system_error>
+#include <type_traits>
 #include <variant>
 
 #ifndef NDEBUG
@@ -23,7 +23,7 @@ template <typename R>
 struct using_awaitable_t {
 private:
     struct state_type {
-        std::variant<std::monostate, std::error_code, R> result;
+        std::variant<std::monostate, std::error_code, std::conditional_t<std::is_void_v<R>, std::monostate, R>> m_result;
         std::coroutine_handle<> m_coroutine = std::noop_coroutine();
     };
 
@@ -47,24 +47,40 @@ public:
     {
         struct awaitable {
 
-            constexpr bool await_ready() const noexcept { return false; }
-            void await_suspend(std::coroutine_handle<> coroutine) { m_state->m_coroutine = coroutine; }
+            constexpr bool await_ready() const noexcept
+            {
+                return false;
+            }
+
+            void await_suspend(std::coroutine_handle<> coroutine)
+            {
+                m_state->m_coroutine = coroutine;
+            }
 
             R await_resume()
             {
                 if (m_state->m_result.index() == 1) {
                     auto ec = std::get<1>(m_state->m_result);
-                    m_state->template emplace<0>();
+                    m_state->m_result.template emplace<0>();
                     throw std::system_error(ec);
                 } else if (m_state->m_result.index() == 2) {
-                    R result = std::get<2>(std::move(m_state->m_result));
-                    m_state->template emplace<0>();
-                    return result;
+                    if constexpr (std::is_void_v<R>) {
+                        m_state->m_result.template emplace<0>();
+                    } else {
+                        R result = std::get<2>(std::move(m_state->m_result));
+                        m_state->m_result.template emplace<0>();
+                        return result;
+                    }
                 }
 #ifndef NDEBUG
                 else
                     throw std::system_error(std::make_error_code(std::future_errc::future_already_retrieved));
 #endif
+            }
+
+            awaitable(std::shared_ptr<state_type> state)
+                : m_state(state)
+            {
             }
 
         private:
@@ -83,16 +99,16 @@ public:
      * @param error
      * @param result
      */
-    void operator()(std::error_code error, R result)
+    void operator()(std::variant<std::error_code, std::conditional_t<std::is_void_v<R>, std::monostate, R>> result)
     {
 #ifndef NDEBUG
         if (m_state->m_result.index() != 0)
             throw std::system_error(std::make_error_code(std::future_errc::promise_already_satisfied));
 #endif
-        if (error)
-            m_state->m_result.template emplace<1>(error);
+        if (result.index() == 0)
+            m_state->m_result.template emplace<1>(std::get<0>(std::move(result)));
         else
-            m_state->m_result.template emplace<2>(std::move(result));
+            m_state->m_result.template emplace<2>(std::get<1>(std::move(result)));
         m_state->m_coroutine.resume();
     }
 
@@ -108,7 +124,7 @@ struct use_awaitable_t {
     explicit constexpr use_awaitable_t() noexcept = default;
 
     template <typename R>
-    using_awaitable_t<R> async_transform()
+    using_awaitable_t<R> async_transform() const
     {
         return using_awaitable_t<R> {};
     }
@@ -121,6 +137,6 @@ struct use_awaitable_t {
  */
 inline constexpr auto use_awaitable = use_awaitable_t {};
 
-}
+} // namespace tcx
 
 #endif

@@ -32,16 +32,13 @@ namespace impl {
     };
 
     template <typename F, typename T>
-    constexpr bool is_completion_handler()
+    consteval bool is_completion_handler()
     {
         if constexpr (has_async_transform<F, T>)
             return is_completion_handler<decltype(std::declval<F>().template async_transform<T>()), T>();
-        else if constexpr (std::is_void_v<T>)
-            return std::invocable<F, std::error_code> || std::invocable<F, std::variant<std::error_code, std::monostate>>;
-        else
-            return std::invocable<F, std::error_code, T> || std::invocable<F, std::variant<std::error_code, T>>;
+        return std::invocable<F, std::variant<std::error_code, std::conditional_t<std::is_void_v<T>, std::monostate, T>>>;
     }
-}
+} // namespace impl
 
 /**
  * @brief Specifies that a type can be used as a completion handler of an asynchronous operation.
@@ -49,11 +46,9 @@ namespace impl {
  * If the expression `o.template async_transform<R>()` (where `o` is an instance of `T`)
  * is valid and it's type is not *cv-qualified* `void` then that type is used as `T` instead (recursively).
  *
- * If `R` is *cv-qualified* `void`, then `T` must be invocable with a single `std::error_code` argument,
- * or a `std::variant<std::error_code, std::monostate>`.
+ * If `R` is *cv-qualified* `void`, then `T` must be invocable with a single `std::variant<std::error_code, std::monostate>` argument.
  *
- * If `R` is not *cv-qualified* `void`, then `T` must be invocable with the arguments `std::error_code` and `R`,
- * or a `std::variant<std::error_code, R>`.
+ * If `R` is not *cv-qualified* `void`, then `T` must be invocable a single `std::variant<std::error_code, R>` argument.
  *
  * @tparam R Result type of the asynchronous operation.
  */
@@ -64,6 +59,6 @@ concept completion_handler = implementation defined;
 template <typename T, typename R>
 concept completion_handler = impl::is_completion_handler<T, R>();
 #endif
-}
+} // namespace tcx
 
 #endif
