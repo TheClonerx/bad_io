@@ -3,16 +3,16 @@
 
 #include <cstdint>
 
-namespace tcx {
+namespace tcx::native {
 
 #ifdef _WIN32
-using native_handle_type = void *;
-inline static native_handle_type invalid_handle = reinterpret_cast<void *>(~static_cast<std::uintptr_t>(0));
+using handle_type = void *;
+inline static handle_type invalid_handle = reinterpret_cast<void *>(~static_cast<std::uintptr_t>(0));
 #else
-using native_handle_type = int;
-inline static native_handle_type invalid_handle = -1;
+using handle_type = int;
+inline static handle_type invalid_handle = -1;
 #endif
 
-}
+} // namespace tcx::native
 
 #endif

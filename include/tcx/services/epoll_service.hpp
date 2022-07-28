@@ -40,7 +40,7 @@ namespace impl {
 
         void (*pfn_deleter)(void *) = nullptr;
     };
-}
+} // namespace impl
 
 /**
  * @brief Specifies that a type can be used as a completion handler in `tcx::epoll_service`
@@ -55,7 +55,8 @@ concept epoll_completion_handler = std::is_invocable_v<F, std::int32_t>;
  */
 class epoll_service {
 public:
-    using native_handle_type = tcx::native_handle_type;
+    using native_handle_type = tcx::native::handle_type;
+    inline static native_handle_type invalid_handle = tcx::native::invalid_handle;
 
     epoll_service()
         : m_handle(epoll_create1(EPOLL_CLOEXEC))
@@ -138,11 +139,12 @@ public:
     ~epoll_service();
 
 private:
-    tcx::native_handle_type m_handle = tcx::invalid_handle;
+    native_handle_type m_handle = invalid_handle;
+
     using data_map = oneapi::tbb::concurrent_hash_map<int, std::unique_ptr<void *, impl::ErasedDeleter>>;
     data_map m_data;
 };
 
-}
+} // namespace tcx
 
 #endif

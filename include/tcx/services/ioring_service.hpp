@@ -32,7 +32,7 @@ concept ioring_completion_handler = std::is_invocable_v<F, std::int32_t>;
  */
 class ioring_service {
 public:
-    using native_handle_type = tcx::native_handle_type;
+    using native_handle_type = tcx::native::handle_type;
 
 #ifdef DOXYGEN_INVOKED
     /**
@@ -42,7 +42,7 @@ public:
 #else
     using operation_id = decltype(std::declval<io_uring_sqe>().user_data);
 #endif
-    inline static native_handle_type invalid_handle = tcx::invalid_handle;
+    inline static native_handle_type invalid_handle = tcx::native::invalid_handle;
 
     /**
      * @brief Construct a new ioring service object
@@ -634,6 +634,6 @@ private:
 #endif
 };
 
-}
+} // namespace tcx
 
 #endif

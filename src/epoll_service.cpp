@@ -29,6 +29,7 @@ void tcx::epoll_service::poll()
             void (*pfn_invoke)(Completion *self, int err_nr);
             int fd;
         };
+
         auto *ptr = reinterpret_cast<Completion *>(event.data.ptr);
         ptr->pfn_invoke(ptr, event.events);
         if (data_map::accessor accessor; m_data.find(accessor, ptr->fd))
@@ -41,8 +42,8 @@ void tcx::epoll_service::poll()
 tcx::epoll_service::~epoll_service()
 {
     assert(!pending() && "tried to destroy an epoll instance with pending operations");
-    if (m_handle != tcx::invalid_handle) {
+    if (m_handle != invalid_handle) {
         ::close(m_handle);
-        m_handle = tcx::invalid_handle;
+        m_handle = invalid_handle;
     }
 }

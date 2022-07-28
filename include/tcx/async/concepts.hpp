@@ -59,6 +59,7 @@ concept completion_handler = implementation defined;
 template <typename T, typename R>
 concept completion_handler = impl::is_completion_handler<T, R>();
 #endif
+
 } // namespace tcx
 
 #endif
