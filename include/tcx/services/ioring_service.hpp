@@ -40,7 +40,7 @@ public:
      */
     using operation_id = implementation defined;
 #else
-    using operation_id = decltype(std::declval<io_uring_sqe>().user_data);
+    enum operation_id : decltype(std::declval<io_uring_sqe>().user_data) {};
 #endif
     inline static native_handle_type invalid_handle = tcx::native::invalid_handle;
 
@@ -588,7 +588,7 @@ private:
     static io_uring setup_rings(std::uint32_t entries);
 
     template <typename F>
-    auto submit(io_uring_sqe operation, F &&completion)
+    auto submit(io_uring_sqe const &operation, F &&completion)
     {
         struct Completion {
             void (*call)(Completion *self, std::int32_t res);
@@ -607,22 +607,18 @@ private:
             },
             .functor = std::forward<F>(completion) });
 
-        auto *sqe = io_uring_get_sqe(&m_uring);
-        if (!sqe) {
+        io_uring_sqe *sqe;
+        while (!(sqe = io_uring_get_sqe(&m_uring))) {
             if (int res = io_uring_submit(&m_uring); res < 0)
                 throw std::system_error(-res, std::system_category(), "io_uring_submit");
-
-            if (!(sqe = io_uring_get_sqe(&m_uring))) {
-                throw std::runtime_error("io_uring is full");
-            }
         }
 
-        operation.user_data = reinterpret_cast<std::uintptr_t>(p.release());
         *sqe = operation;
+        io_uring_sqe_set_data(sqe, p.release());
 
         m_pending.fetch_add(1, std::memory_order_release);
 
-        return operation.user_data;
+        return static_cast<operation_id>(operation.user_data);
     }
 
 private:
