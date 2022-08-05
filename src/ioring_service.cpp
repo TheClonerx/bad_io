@@ -55,7 +55,10 @@ void tcx::ioring_service::poll()
     for (;;) {
         io_uring_cqe *cqe = nullptr;
         int err_nr = io_uring_peek_cqe(&m_uring, &cqe);
-        if (err_nr < 0 && err_nr != -EAGAIN)
+        if (err_nr == -EAGAIN)
+            continue;
+
+        if (err_nr < 0)
             throw std::system_error(-err_nr, std::system_category(), "io_uring_peek_cqe");
 
         if (cqe == nullptr)
