@@ -29,7 +29,7 @@ namespace impl {
             });
         }
     };
-}
+} // namespace impl
 
 /**
  * @ingroup ioring_service
@@ -93,6 +93,6 @@ auto async_sleep_until(E &executor, tcx::ioring_service &service, std::chrono::t
 
 // there's no standard clock for CLOCK_BOOTTIME
 
-}
+} // namespace tcx
 
 #endif

@@ -15,10 +15,10 @@
 #include <tcx/services/ioring_service.hpp>
 
 namespace tcx {
-
 namespace impl {
+
     struct ioring_open_operation {
-        using result_type = tcx::native_handle_type;
+        using result_type = tcx::native::handle_type;
 
         template <typename E, typename F>
         static void call(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
@@ -42,7 +42,6 @@ namespace impl {
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
-
 auto async_open(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_open_operation>::call(executor, service, std::forward<F>(f), path, flags, mode);
@@ -53,7 +52,6 @@ auto async_open(E &executor, tcx::ioring_service &service, char const *path, int
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
-
 auto async_open(E &executor, tcx::ioring_service &service, char const *path, char const *mode, F &&f)
 {
     bool has_plus = false, has_read = false, has_write = false, has_append = false, has_cloexec = false, has_exclusive = false;

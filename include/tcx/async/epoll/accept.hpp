@@ -15,17 +15,18 @@
 
 namespace tcx {
 namespace impl {
+
     struct epoll_accept_operation {
-        using result_type = tcx::native_handle_type;
+        using result_type = tcx::native::handle_type;
 
         template <typename E, typename F>
-        static void call(E &executor, tcx::epoll_service &service, tcx::native_handle_type fd, sockaddr *addr, std::size_t *addr_len, int flags, F &&f)
+        static void call(E &executor, tcx::epoll_service &service, tcx::native::handle_type fd, sockaddr *addr, std::size_t *addr_len, int flags, F &&f)
         {
 
             service.async_poll_add(fd, EPOLLIN, [&executor, f = std::forward<F>(f), addr, addr_len, flags, fd](std::int32_t result) mutable {
                 executor.post([f = std::move(f), result, addr, addr_len, flags, fd]() mutable {
                     if (result < 0)
-                        f(std::error_code { -result, std::system_category() }, tcx::invalid_handle);
+                        f(std::error_code { -result, std::system_category() }, tcx::native::invalid_handle);
                     else {
                         if (addr_len == nullptr) {
                             int new_fd = ::accept4(fd, addr, nullptr, flags);
@@ -40,21 +41,22 @@ namespace impl {
                                 f(std::error_code {}, new_fd);
                             }
                         }
-                        f(std::error_code { errno, std::system_category() }, tcx::invalid_handle);
+                        f(std::error_code { errno, std::system_category() }, tcx::native::invalid_handle);
                     };
                 });
             });
         }
     };
-}
+
+} // namespace impl
 
 template <typename E, typename F>
-    requires tcx::completion_handler<F, tcx::impl::epoll_accept_operation::result_type>
-decltype(auto) async_accept(E &executor, tcx::epoll_service &service, tcx::native_handle_type fd, sockaddr *addr, std::size_t *addr_len, int flags, F &&f)
+requires tcx::completion_handler<F, tcx::impl::epoll_accept_operation::result_type>
+decltype(auto) async_accept(E &executor, tcx::epoll_service &service, tcx::native::handle_type fd, sockaddr *addr, std::size_t *addr_len, int flags, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::epoll_accept_operation>::call(executor, service, std::forward<F>(f), fd, addr, addr_len, flags);
 }
 
-}
+} // namespace tcx
 
 #endif

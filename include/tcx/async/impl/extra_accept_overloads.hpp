@@ -9,26 +9,26 @@
 namespace tcx {
 
 template <typename E, typename F, typename S>
-    requires tcx::completion_handler<F, tcx::native_handle_type>
-auto async_accept(E &executor, S &service, tcx::native_handle_type fd, sockaddr *addr, std::size_t *addr_len, F &&f)
+requires tcx::completion_handler<F, tcx::native::handle_type>
+auto async_accept(E &executor, S &service, tcx::native::handle_type fd, sockaddr *addr, std::size_t *addr_len, F &&f)
 {
     return tcx::async_accept(executor, service, fd, addr, addr_len, 0, std::forward<F>(f));
 }
 
 template <typename E, typename F, typename S>
-    requires tcx::completion_handler<F, tcx::native_handle_type>
-auto async_accept(E &executor, S &service, tcx::native_handle_type fd, int flags, F &&f)
+requires tcx::completion_handler<F, tcx::native::handle_type>
+auto async_accept(E &executor, S &service, tcx::native::handle_type fd, int flags, F &&f)
 {
     return tcx::async_accept(executor, service, fd, nullptr, nullptr, flags, std::forward<F>(f));
 }
 
 template <typename E, typename F, typename S>
-    requires tcx::completion_handler<F, tcx::native_handle_type>
-auto async_accept(E &executor, S &service, tcx::native_handle_type fd, F &&f)
+requires tcx::completion_handler<F, tcx::native::handle_type>
+auto async_accept(E &executor, S &service, tcx::native::handle_type fd, F &&f)
 {
     return tcx::async_accept(executor, service, fd, nullptr, nullptr, 0, std::forward<F>(f));
 }
 
-}
+} // namespace tcx
 
 #endif
