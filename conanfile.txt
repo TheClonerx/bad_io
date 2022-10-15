@@ -1,10 +1,6 @@
 [requires]
-onetbb/2021.3.0
-liburing/2.1
-
-[build_requires]
-doxygen/1.9.2
+liburing/2.2
 
 [generators]
-cmake_paths
-cmake_find_package
+CMakeToolchain
+CMakeDeps
