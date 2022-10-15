@@ -242,9 +242,7 @@ public:
     operation_id async_poll_remove(operation_id operation, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_poll_remove(&op, nullptr); // this takes a pointer (which might not be 64 bits) as addr (__u64)
-        op.addr = operation; // set the operation_id directly
-
+        io_uring_prep_poll_remove(&op, static_cast<std::uint64_t>(operation));
         return submit(op, std::forward<F>(f));
     }
 
