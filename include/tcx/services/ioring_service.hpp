@@ -208,6 +208,27 @@ public:
     }
 
     /**
+    * @brief poll a file for events
+    * @see [_man 2 epoll_ctl_](https://man.archlinux.org/man/epoll_ctl.2.en)
+
+    * @attention
+    * This interface will end up invoking `f` more than once
+
+    * @param fd file descriptor to listen events from
+    * @param events a bit mask composed by ORing together zero or more of the `EPOLL*` constants
+    * @param f callback
+    * @return id of the operation
+    */
+    template <tcx::ioring_completion_handler F>
+    operation_id async_poll_multishot(int fd, std::uint32_t events, F &&f)
+    {
+        io_uring_sqe op {};
+        io_uring_prep_poll_multishot(&op, fd, events);
+
+        return submit(op, std::forward<F>(f));
+    }
+
+    /**
      * @brief remove an existing poll request
      * @see tcx::ioring_service::async_cancel
 
