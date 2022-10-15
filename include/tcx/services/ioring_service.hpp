@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <system_error>
@@ -19,12 +20,14 @@
 
 namespace tcx {
 
+class ioring_service;
+
 /**
  * @brief Specifies that a type can be used as a completion handler in `tcx::ioring_service`
  * @ingroup ioring_service
  */
 template <typename F>
-concept ioring_completion_handler = std::is_invocable_v<F, std::int32_t>;
+concept ioring_completion_handler = std::is_invocable_v<F, tcx::ioring_service &, std::int32_t> || std::is_invocable_v<F, tcx::ioring_service &, io_uring_sqe &>;
 
 /**
  * @ingroup ioring_service
@@ -81,8 +84,8 @@ public:
     template <typename F>
     void post(F &&f) requires std::is_invocable_v<F>
     {
-        async_noop([f = std::move(f)](std::uint32_t) mutable {
-            (void)f();
+        async_noop([f = std::move(f)](tcx::ioring_service &, std::uint32_t) mutable {
+            (void)std::invoke(f);
         });
     }
 
@@ -598,21 +601,25 @@ private:
     auto submit(io_uring_sqe const &operation, F &&completion)
     {
         struct Completion {
-            void (*call)(Completion *self, std::int32_t res);
+            void (*call)(Completion *self, ioring_service &service, io_uring_cqe &result);
             F functor;
         };
 
         auto p = std::make_unique<Completion>(Completion {
-            .call = +[](Completion *self, std::int32_t res) {
-                try {
-                    self->functor(res);
-                } catch (...) {
-                    delete self;
-                    throw;
+            .call = +[](Completion *self, ioring_service &service, io_uring_cqe &result) {
+                if (result.flags & IORING_CQE_F_MORE) {
+                    // there will be more completion entries coming, do not delete
+                    std::invoke(self->functor, service, result);
+                } else {
+                    // last completion,
+                    // ensure the pointer gets deleted even in an exception
+                    auto completion = std::unique_ptr<Completion>(self);
+                    std::invoke(completion->functor, service, result);
                 }
-                delete self;
             },
-            .functor = std::forward<F>(completion) });
+            .functor = std::forward<F>(completion)
+
+        });
 
         io_uring_sqe *sqe;
         while (!(sqe = io_uring_get_sqe(&m_uring))) {
