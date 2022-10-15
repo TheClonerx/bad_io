@@ -40,7 +40,7 @@ public:
      */
     using operation_id = implementation defined;
 #else
-    enum operation_id : decltype(std::declval<io_uring_sqe>().user_data) {};
+    enum operation_id : std::uint64_t {};
 #endif
     inline static native_handle_type invalid_handle = tcx::native::invalid_handle;
 
@@ -188,8 +188,7 @@ public:
      * @see [_man 2 epoll_ctl_](https://man.archlinux.org/man/epoll_ctl.2.en)
 
      * @attention
-     * While io_uring allows multi-shot mode, this interface only allows for one-shot mode.
-     * <b>There's no way to enable multi-shot mode.</b>
+     * This interface is only for one-shot mode.
 
      * @param fd file descriptor to listen events from
      * @param events a bit mask composed by ORing together zero or more of the `EPOLL*` constants
@@ -207,9 +206,9 @@ public:
 
     /**
      * @brief remove an existing poll request
+     * @see tcx::ioring_service::async_cancel
 
-     * If found, the operation will complete with the value of 0.
-     * If not found, the operation will complete with the value of `-ENOENT`, or `-EALREADY` if the poll request was in the process of completing already.
+     * Works like tcx::ioring_service::async_cancel except only looks for poll requests.
 
      * @param operation id of the polling operation to remove
      * @param f callback
@@ -226,7 +225,7 @@ public:
     }
 
     /**
-     * @brief add, update or remove entries in the interest list of the epoll instance
+     * @brief Asynchronously adds, updates, or removes entries in the interest list of an epoll instance
      * @see [_man 2 epoll_ctl_](https://man.archlinux.org/man/epoll_ctl.2.en)
      * @see [_man 7 epoll_](https://man.archlinux.org/man/epoll.7.en)
 
@@ -250,7 +249,7 @@ public:
     }
 
     /**
-     * @brief synchronize a file segment's in-core state with it's underlying storage device
+     * @brief Synchronize a file segment's in-core state with it's underlying storage device
      * @see [_man 2 sync_file_range_](https://man.archlinux.org/man/sync_file_range.2.en)
 
      * @warning
@@ -277,7 +276,15 @@ public:
         return submit(op, std::forward<F>(f));
     }
 
-    // sendmsg(2)
+    /**
+     * @brief Transmit a message to another socket.
+     * @see [_man 2 sendmsg](https://man.archlinux.org/man/sendmsg.2.en)
+
+     * @param fd file descriptor
+     * @param msg message to transmit
+     * @param flags see [_man 2 sendmsg_](https://man.archlinux.org/man/sendmsg.2.en#The_flags_argument)
+     * @param f callback
+     */
     template <tcx::ioring_completion_handler F>
     operation_id async_sendmsg(int fd, msghdr const *msg, int flags, F &&f)
     {
