@@ -347,10 +347,10 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    operation_id async_timeout(__kernel_timespec const *timeout, int flags, F &&f)
+    operation_id async_timeout(__kernel_timespec const *timeout, std::uint32_t count, int flags, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_timeout(&op, const_cast<__kernel_timespec *>(timeout), 0, flags);
+        io_uring_prep_timeout(&op, const_cast<__kernel_timespec *>(timeout), count, flags);
 
         return submit(op, std::forward<F>(f));
     }
