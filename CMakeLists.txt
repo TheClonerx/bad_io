@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(event_loop)
 
-include(${CMAKE_BINARY_DIR}/conan_paths.cmake OPTIONAL)
-
 set(WITH_URING_DEFAULT OFF)
 set(WITH_EPOLL_DEFAULT OFF)
 set(WITH_POLL_DEFAULT ON)
@@ -38,10 +36,9 @@ if (WITH_IOCP AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 endif()
 
 if (WITH_URING)
-    find_package(liburing REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(liburing REQUIRED IMPORTED_TARGET liburing)
 endif()
-
-find_package(TBB REQUIRED)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -54,10 +51,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
-target_link_libraries(${PROJECT_NAME} PUBLIC TBB::tbb)
 
 if (WITH_URING)
-    target_link_libraries(${PROJECT_NAME} PUBLIC liburing::liburing)
+    target_link_libraries(${PROJECT_NAME} PUBLIC PkgConfig::liburing)
     target_sources(${PROJECT_NAME} PRIVATE src/ioring_service.cpp)
 endif()
 if (WITH_EPOLL)
