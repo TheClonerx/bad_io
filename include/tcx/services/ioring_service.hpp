@@ -27,7 +27,7 @@ class ioring_service;
  * @ingroup ioring_service
  */
 template <typename F>
-concept ioring_completion_handler = std::is_invocable_v<F, tcx::ioring_service &, std::int32_t> || std::is_invocable_v<F, tcx::ioring_service &, io_uring_sqe &>;
+concept ioring_completion_handler = std::is_invocable_v<F, tcx::ioring_service &, std::int32_t> || std::is_invocable_v<F, tcx::ioring_service &, io_uring_sqe const *>;
 
 /**
  * @ingroup ioring_service
@@ -35,8 +35,6 @@ concept ioring_completion_handler = std::is_invocable_v<F, tcx::ioring_service &
  */
 class ioring_service {
 public:
-    using native_handle_type = tcx::native::handle_type;
-
 #ifdef DOXYGEN_INVOKED
     /**
      * @brief Uniquely identifies the operation in the same `tcx::ioring_service` instance
@@ -45,7 +43,8 @@ public:
 #else
     enum operation_id : std::uint64_t {};
 #endif
-    inline static native_handle_type invalid_handle = tcx::native::invalid_handle;
+    using native_handle_type = tcx::native::handle_type;
+    inline static native_handle_type const invalid_handle = tcx::native::invalid_handle;
 
     /**
      * @brief Construct a new ioring service object
@@ -82,9 +81,10 @@ public:
     }
 
     template <typename F>
-    void post(F &&f) requires std::is_invocable_v<F>
+    requires std::is_invocable_v<F>
+    void post(F &&f)
     {
-        async_noop([f = std::move(f)](tcx::ioring_service &, std::uint32_t) mutable {
+        async_noop([f = std::forward<F>(f)](tcx::ioring_service &, io_uring_cqe const *) mutable {
             (void)std::invoke(f);
         });
     }
@@ -617,28 +617,36 @@ private:
     static io_uring setup_rings(std::uint32_t entries);
 
     template <typename F>
+    requires std::is_invocable_v<F, ioring_service &, std::int32_t>
+    auto submit(io_uring_sqe const &operation, F &&completion)
+    {
+        return submit(operation, [completion = std::forward<F>(completion)](ioring_service &service, io_uring_cqe const *cqe) mutable {
+            std::invoke(completion, service, cqe->res);
+        });
+    }
+
+    template <typename F>
+    requires std::is_invocable_v<F, ioring_service &, io_uring_cqe const *>
     auto submit(io_uring_sqe const &operation, F &&completion)
     {
         struct Completion {
-            void (*call)(Completion *self, ioring_service &service, io_uring_cqe &result);
-            F functor;
+            void (*call)(Completion *self, ioring_service &service, io_uring_cqe const *result);
+            F callback;
         };
 
-        auto p = std::make_unique<Completion>(Completion {
-            .call = +[](Completion *self, ioring_service &service, io_uring_cqe &result) {
-                if (result.flags & IORING_CQE_F_MORE) {
+        auto p = std::make_unique<Completion>(
+            +[](Completion *self, ioring_service &service, io_uring_cqe const *result) {
+                if (result->flags & IORING_CQE_F_MORE) {
                     // there will be more completion entries coming, do not delete
-                    std::invoke(self->functor, service, result);
+                    std::invoke(self->callback, service, result);
                 } else {
                     // last completion,
                     // ensure the pointer gets deleted even in an exception
                     auto completion = std::unique_ptr<Completion>(self);
-                    std::invoke(completion->functor, service, result);
+                    std::invoke(completion->callback, service, result);
                 }
             },
-            .functor = std::forward<F>(completion)
-
-        });
+            std::forward<F>(completion));
 
         io_uring_sqe *sqe;
         while (!(sqe = io_uring_get_sqe(&m_uring))) {

@@ -23,7 +23,7 @@ namespace impl {
 
             auto statxbuf = std::make_unique<struct ::statx>();
             auto *const p = statxbuf.get();
-            service.async_statx(dir_fd, pathname, flags, STATX_BASIC_STATS, p, [statxbuf = std::move(statxbuf), statbuf, &executor, f = std::forward<F>(f)](std::int32_t result) mutable {
+            service.async_statx(dir_fd, pathname, flags, STATX_BASIC_STATS, p, [statxbuf = std::move(statxbuf), statbuf, &executor, f = std::forward<F>(f)](tcx::ioring_service &, std::int32_t result) mutable {
                 statbuf->st_dev = (static_cast<std::uint64_t>(statxbuf->stx_dev_major) << 32u) | statxbuf->stx_dev_minor;
                 statbuf->st_ino = statxbuf->stx_ino;
                 statbuf->st_nlink = statxbuf->stx_nlink;

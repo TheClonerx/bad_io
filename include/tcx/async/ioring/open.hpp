@@ -25,7 +25,7 @@ namespace impl {
         {
             using variant_type = std::variant<std::error_code, result_type>;
 
-            service.async_open(path, flags, mode, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
+            service.async_open(path, flags, mode, [&executor, f = std::forward<F>(f)](tcx::ioring_service &, std::int32_t result) mutable {
                 executor.post([f = std::move(f), result]() mutable {
                     if (result < 0)
                         f(variant_type(std::in_place_index<0>, -result, std::system_category()));
