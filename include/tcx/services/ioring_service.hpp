@@ -2,10 +2,12 @@
 #define TCX_SERVICES_IORING_SERVICE_HPP
 
 #include <atomic>
+#include <cassert>
+#include <climits>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <memory>
-#include <stdexcept>
 #include <system_error>
 #include <type_traits>
 #include <utility>
@@ -15,6 +17,7 @@
 #include <liburing.h>
 
 #include <tcx/native/handle.hpp>
+#include <tcx/utilities/clamp.hpp>
 
 /** @addtogroup ioring_service Linux's io_uring */
 
@@ -80,6 +83,27 @@ public:
         return m_uring.ring_fd;
     }
 
+    /**
+     * @brief return the features supported by the implementation
+     *
+     * @see [_man 2 io_uring_setup_](https://man.archlinux.org/man/io_uring_setup.2)
+     */
+    [[nodiscard]] unsigned features() const noexcept
+    {
+        return m_uring.features;
+    }
+
+    /**
+     * @brief check if the implementation supports a feature
+
+     * this is a shortcut for `service.features() & feature != 0`
+     * @see ioring_service::features()
+     */
+    [[nodiscard]] bool has_feature(unsigned feature) const noexcept
+    {
+        return m_uring.features & feature;
+    }
+
     template <typename F>
     requires std::is_invocable_v<F>
     void post(F &&f)
@@ -117,19 +141,24 @@ public:
      * Otherwise the provided `offset` is used as the offset to read from, and the internal offset is not updated.
 
      * @param fd file descriptor
-     * @param iov array of io vectors
-     * @param len numbers of io vectors
+     * @param iov array of I/O vectors
+     * @param iov_len numbers of I/O vectors
      * @param offset offset into the file, or -1
      * @param flags see [_man 2 pwritev2_](https://man.archlinux.org/man/preadv2.2.en#preadv2()_and_pwritev2())
      * @param f callback
      * @return id of the operation
      */
     template <tcx::ioring_completion_handler F>
-    operation_id async_readv(int fd, iovec const *iov, std::size_t len, off64_t offset, int flags, F &&f)
+    operation_id async_readv(int fd, iovec const *iov, std::size_t iov_len, off64_t offset, int flags, F &&f)
     {
+        // TODO: maybe change the `offset` type to `uint64_t` and use an special tag type for -1?
+
+        // only possible values are -1, 0, or a positive integer
+        assert(offset >= -1);
+        assert(offset == -1 + !has_feature(IORING_FEAT_RW_CUR_POS) == 2);
+
         io_uring_sqe op {};
-        io_uring_prep_readv(&op, fd, iov, len, offset);
-        op.rw_flags = flags;
+        io_uring_prep_readv2(&op, fd, iov, tcx::utilities::clamp<unsigned>(iov_len), static_cast<uint64_t>(offset), flags);
 
         return submit(op, std::forward<F>(f));
     }
@@ -149,18 +178,23 @@ public:
 
      * @param fd file descriptor
      * @param iov array of io vectors
-     * @param len numbers of io vectors
+     * @param iov_len numbers of io vectors
      * @param offset offset into the file, or -1
      * @param flags see [_man 2 pwritev2_](https://man.archlinux.org/man/pwritev2.2.en#preadv2()_and_pwritev2())
      * @param f callback
      * @return id of the operation
      */
     template <tcx::ioring_completion_handler F>
-    operation_id async_writev(int fd, iovec const *iov, std::size_t len, off64_t offset, int flags, F &&f)
+    operation_id async_writev(int fd, iovec const *iov, std::size_t iov_len, off64_t offset, int flags, F &&f)
     {
+        // TODO: maybe change the `offset` type to `uint64_t` and use an special tag type for -1?
+
+        // only possible values are -1, 0, or a positive integer
+        assert(offset >= -1);
+        assert(offset == -1 + !has_feature(IORING_FEAT_RW_CUR_POS) == 2);
+
         io_uring_sqe op {};
-        io_uring_prep_writev(&op, fd, iov, len, offset);
-        op.rw_flags = flags;
+        io_uring_prep_writev2(&op, fd, iov, tcx::utilities::clamp<unsigned>(iov_len), static_cast<uint64_t>(offset), flags);
 
         return submit(op, std::forward<F>(f));
     }
@@ -178,7 +212,7 @@ public:
      * @return id of the operation
      */
     template <tcx::ioring_completion_handler F>
-    operation_id async_fsync(int fd, int flags, F &&f)
+    operation_id async_fsync(int fd, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_fsync(&op, fd, flags);
@@ -279,8 +313,9 @@ public:
      * <b>None of these operations writes out the file's metadata.</b>
      * <b>There are no guarantees that the data will be available after a crash.</b>
 
-     * @attention unlike the `sync_file_range` syscall, which uses `off_t` as the `nbytes`
-     * argument (which might be a signed 64bit integer), io_uring uses an unsigned 32bit integer.
+     * @attention unlike the `sync_file_range` syscall, which uses `off64_t` as the `nbytes`
+     * argument (which is a signed 64bit integer), io_uring uses an unsigned 32bit integer.
+     * Thus, using any value above UINT32_MAX is UB until io_uring adds a way to specify a larger range.
 
      * @param fd file descriptor
      * @param offset offset into the file
@@ -290,10 +325,12 @@ public:
      * @return id of the operation
      */
     template <tcx::ioring_completion_handler F>
-    operation_id async_sync_file_range(int fd, off64_t offset, std::uint32_t nbytes, unsigned int flags, F &&f)
+    operation_id async_sync_file_range(int fd, uint64_t offset, uint64_t nbytes, int flags, F &&f)
     {
+        assert(nbytes <= UINT32_MAX);
+
         io_uring_sqe op {};
-        io_uring_prep_sync_file_range(&op, fd, nbytes, offset, flags);
+        io_uring_prep_sync_file_range(&op, fd, static_cast<unsigned>(nbytes), offset, flags);
 
         return submit(op, std::forward<F>(f));
     }
@@ -308,7 +345,7 @@ public:
      * @param f callback
      */
     template <tcx::ioring_completion_handler F>
-    operation_id async_sendmsg(int fd, msghdr const *msg, int flags, F &&f)
+    operation_id async_sendmsg(int fd, msghdr const *msg, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_sendmsg(&op, fd, msg, flags);
@@ -318,7 +355,7 @@ public:
 
     // recvmsg(2)
     template <tcx::ioring_completion_handler F>
-    operation_id async_recvmsg(int fd, msghdr *msg, int flags, F &&f)
+    operation_id async_recvmsg(int fd, msghdr *msg, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_recvmsg(&op, fd, msg, flags);
@@ -328,26 +365,26 @@ public:
 
     // send(2)
     template <tcx::ioring_completion_handler F>
-    operation_id async_send(int fd, void const *buf, std::size_t len, int flags, F &&f)
+    operation_id async_send(int fd, void const *buf, std::size_t buf_len, int flags, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_send(&op, fd, buf, len, flags);
+        io_uring_prep_send(&op, fd, buf, buf_len, flags);
 
         return submit(op, std::forward<F>(f));
     }
 
     // recv(2)
     template <tcx::ioring_completion_handler F>
-    operation_id async_recv(int fd, void *buf, std::size_t len, int flags, F &&f)
+    operation_id async_recv(int fd, void *buf, std::size_t buf_len, int flags, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_recv(&op, fd, buf, len, flags);
+        io_uring_prep_recv(&op, fd, buf, buf_len, flags);
 
         return submit(op, std::forward<F>(f));
     }
 
     template <tcx::ioring_completion_handler F>
-    operation_id async_timeout(__kernel_timespec const *timeout, std::uint32_t count, int flags, F &&f)
+    operation_id async_timeout(__kernel_timespec const *timeout, std::uint32_t count, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_timeout(&op, const_cast<__kernel_timespec *>(timeout), count, flags);
@@ -356,42 +393,47 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    operation_id async_timeout_remove(std::uint64_t timer_id, F &&f)
+    operation_id async_timeout_remove(operation_id timer_id, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_timeout_remove(&op, timer_id, 0);
+        io_uring_prep_timeout_remove(&op, timer_id, flags);
 
         return submit(op, std::forward<F>(f));
     }
 
     template <tcx::ioring_completion_handler F>
-    operation_id async_timeout_update(std::uint64_t timer_id, __kernel_timespec const *timeout, bool absolute, F &&f)
+    operation_id async_timeout_update(operation_id timer_id, __kernel_timespec const *timeout, bool absolute, F &&f)
     {
         io_uring_sqe op {};
-        // this wil cast timer_id to a pointer which might not be 64bits
         io_uring_prep_timeout_update(&op, const_cast<__kernel_timespec *>(timeout), timer_id, IORING_TIMEOUT_ABS * absolute);
-        op.addr = timer_id; // set timer_id directly
 
         return submit(op, std::forward<F>(f));
     }
 
     // accept4(2)
     template <tcx::ioring_completion_handler F>
-    operation_id async_accept(int fd, sockaddr *addr, socklen_t *addrlen, int flags, F &&f)
+    operation_id async_accept(int fd, sockaddr *addr, socklen_t *addr_len, int flags, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_accept(&op, fd, addr, addrlen, flags);
+        io_uring_prep_accept(&op, fd, addr, addr_len, flags);
 
         return submit(op, std::forward<F>(f));
     }
 
     template <tcx::ioring_completion_handler F>
-    operation_id async_cancel(std::uint64_t operation_id, F &&f)
+    operation_id async_cancel(operation_id operation, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
-        // this wil cast operation_id to a pointer which might not be 64bits
-        io_uring_prep_cancel(&op, nullptr, 0);
-        op.addr = operation_id; // set operation_id directly
+        io_uring_prep_cancel64(&op, operation, static_cast<int>(flags));
+
+        return submit(op, std::forward<F>(f));
+    }
+
+    template <tcx::ioring_completion_handler F>
+    operation_id async_cancel_fd(tcx::native::handle_type fd, unsigned flags, F &&f)
+    {
+        io_uring_sqe op {};
+        io_uring_prep_cancel_fd(&op, fd, flags);
 
         return submit(op, std::forward<F>(f));
     }
@@ -406,10 +448,10 @@ public:
     }
 
     template <tcx::ioring_completion_handler F>
-    operation_id async_connect(int fd, sockaddr const *addr, socklen_t len, F &&f)
+    operation_id async_connect(int fd, sockaddr const *addr, socklen_t addr_len, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_connect(&op, fd, addr, len);
+        io_uring_prep_connect(&op, fd, addr, addr_len);
 
         return submit(op, std::forward<F>(f));
     }
@@ -426,7 +468,7 @@ public:
 
     // posix_fadvise(2)
     template <tcx::ioring_completion_handler F>
-    operation_id async_fadvice(int fd, off_t offset, off_t len, int advice, F &&f)
+    operation_id async_fadvice(int fd, uint64_t offset, off_t len, int advice, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_fadvise(&op, fd, offset, len, advice);
@@ -439,7 +481,7 @@ public:
     operation_id async_madvice(void *addr, std::size_t length, int advice, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_madvise(&op, addr, length, advice);
+        io_uring_prep_madvise(&op, addr, static_cast<off_t>(length), advice);
 
         return submit(op, std::forward<F>(f));
     }
@@ -465,9 +507,11 @@ public:
     template <tcx::ioring_completion_handler F>
     operation_id async_openat2(int dir_fd, char const *pathname, ::open_how *how, std::size_t size, F &&f)
     {
+        assert(size <= UINT32_MAX);
+
         io_uring_sqe op {};
         io_uring_prep_openat2(&op, dir_fd, pathname, how);
-        op.len = size; // just to be safe
+        op.len = static_cast<uint32_t>(size); // just to be safe
 
         return submit(op, std::forward<F>(f));
     }
@@ -494,20 +538,32 @@ public:
 
     // read(2) if `offset` is less than 0, pread(2) otherwise
     template <tcx::ioring_completion_handler F>
-    operation_id async_read(int fd, void *buf, std::size_t len, off_t offset, F &&f)
+    operation_id async_read(int fd, void *buf, std::size_t buf_len, off64_t offset, F &&f)
     {
+        // TODO: maybe change the `offset` type to `uint64_t` and use an special tag type for -1?
+
+        // only possible values are -1, 0, or a positive integer
+        assert(offset >= -1);
+        assert(offset == -1 + !has_feature(IORING_FEAT_RW_CUR_POS) == 2);
+
         io_uring_sqe op {};
-        io_uring_prep_read(&op, fd, buf, len, offset);
+        io_uring_prep_read(&op, fd, buf, tcx::utilities::clamp<unsigned>(buf_len), static_cast<uint64_t>(offset));
 
         return submit(op, std::forward<F>(f));
     }
 
     // write(2) if `offset` is less than 0, pwrite(2) otherwise
     template <tcx::ioring_completion_handler F>
-    operation_id async_write(int fd, void const *buf, std::size_t len, off_t offset, F &&f)
+    operation_id async_write(int fd, void const *buf, std::size_t buf_len, off64_t offset, F &&f)
     {
+        // TODO: maybe change the `offset` type to `uint64_t` and use an special tag type for -1?
+
+        // only possible values are -1, 0, or a positive integer
+        assert(offset >= -1);
+        assert(offset == -1 + !has_feature(IORING_FEAT_RW_CUR_POS) == 2);
+
         io_uring_sqe op {};
-        io_uring_prep_write(&op, fd, buf, len, offset);
+        io_uring_prep_write(&op, fd, buf, tcx::utilities::clamp<unsigned>(buf_len), static_cast<uint64_t>(offset));
 
         return submit(op, std::forward<F>(f));
     }
@@ -517,7 +573,7 @@ public:
     operation_id async_splice(int fd_in, off64_t off_in, int fd_out, off64_t off_out, std::size_t len, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_splice(&op, fd_in, off_in, fd_out, fd_out, len, flags);
+        io_uring_prep_splice(&op, fd_in, off_in, fd_out, off_out, tcx::utilities::clamp<unsigned>(len), flags);
 
         return submit(op, std::forward<F>(f));
     }
@@ -527,7 +583,7 @@ public:
     operation_id async_tee(int fd_in, int fd_out, std::size_t len, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
-        io_uring_prep_tee(&op, fd_in, fd_out, len, flags);
+        io_uring_prep_tee(&op, fd_in, fd_out, tcx::utilities::clamp<unsigned>(len), flags);
 
         return submit(op, std::forward<F>(f));
     }
@@ -562,7 +618,7 @@ public:
 
     // renameat2(2)
     template <tcx::ioring_completion_handler F>
-    operation_id async_renameat(int old_fd, char const *old_path, int new_fd, char const *new_path, int flags, F &&f)
+    operation_id async_renameat(int old_fd, char const *old_path, int new_fd, char const *new_path, unsigned flags, F &&f)
     {
         io_uring_sqe op {};
         io_uring_prep_renameat(&op, old_fd, old_path, new_fd, new_path, flags);
