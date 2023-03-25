@@ -4,7 +4,7 @@
 #include <tcx/async/concepts.hpp>
 #include <tcx/async/wrap_op.hpp>
 #include <tcx/native/handle.hpp>
-#include <tcx/services/ioring_service.hpp>
+#include <tcx/services/uring_service.hpp>
 
 namespace tcx {
 namespace impl {
@@ -13,14 +13,14 @@ namespace impl {
         using result_type = void;
 
         template <typename E, typename F>
-        static void call(E &executor, tcx::ioring_service &service, tcx::native::handle_type fd, F &&f)
+        static auto call(E &executor, tcx::uring_context auto &service, tcx::native::handle_type fd, F &&f)
         {
-            service.async_close(fd, [&executor, f = std::forward<F>(f)](tcx::ioring_service &, std::int32_t result) mutable {
-                executor.post([f = std::move(f), result]() mutable {
+            return service.async_close(fd, [&executor, f = std::forward<F>(f)](tcx::uring_context auto &, io_uring_cqe const *result) mutable {
+                return executor.post([f = std::move(f), result = result->res]() mutable {
                     if (result < 0)
-                        f(std::error_code { -result, std::system_category() });
+                        return f(std::error_code { -result, std::system_category() });
                     else
-                        f(std::error_code {});
+                        return f(std::error_code {});
                 });
             });
         }
@@ -33,7 +33,7 @@ namespace impl {
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_close_operation::result_type>
-auto async_close(E &executor, tcx::ioring_service &service, tcx::native::handle_type fd, F &&f)
+auto async_close(E &executor, tcx::uring_context auto &service, tcx::native::handle_type fd, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_close_operation>::call(executor, service, std::forward<F>(f), fd);
 }

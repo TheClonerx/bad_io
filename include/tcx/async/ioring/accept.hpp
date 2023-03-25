@@ -3,7 +3,7 @@
 
 #include <tcx/async/wrap_op.hpp>
 #include <tcx/native/handle.hpp>
-#include <tcx/services/ioring_service.hpp>
+#include <tcx/services/uring_service.hpp>
 
 #include <memory>
 #include <utility>
@@ -16,28 +16,28 @@ namespace impl {
         using result_type = tcx::native::handle_type;
 
         template <typename E, typename F>
-        static void call(E &executor, tcx::ioring_service &service, tcx::native::handle_type fd, sockaddr *addr, std::size_t *addr_len, int flags, F &&f)
+        static auto call(E &executor, tcx::uring_context auto &service, tcx::native::handle_type fd, sockaddr *addr, std::size_t *addr_len, int flags, F &&f)
         {
             if (addr_len == nullptr) {
-                service.async_accept(fd, addr, nullptr, flags, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
-                    executor.post([f = std::move(f), result]() mutable {
+                return service.async_accept(fd, addr, nullptr, flags, [&executor, f = std::forward<F>(f)](std::int32_t result) mutable {
+                    return executor.post([f = std::move(f), result]() mutable {
                         if (result < 0)
-                            f(std::error_code { -result, std::system_category() }, tcx::native::invalid_handle);
+                            return f(std::error_code { -result, std::system_category() }, tcx::native::invalid_handle);
                         else
-                            f(std::error_code {}, result);
+                            return f(std::error_code {}, result);
                     });
                 });
             } else {
                 auto sock_len = std::make_unique<socklen_t>();
                 auto const p = sock_len.get();
-                service.async_accept(fd, addr, p, flags, [sock_len = std::move(sock_len), addr_len, &executor, f = std::forward<F>(f)](std::int32_t result) mutable {
-                    executor.post([sock_len = std::move(sock_len), addr_len, f = std::move(f), result]() mutable {
+                return service.async_accept(fd, addr, p, flags, [sock_len = std::move(sock_len), addr_len, &executor, f = std::forward<F>(f)](std::int32_t result) mutable {
+                    return executor.post([sock_len = std::move(sock_len), addr_len, f = std::move(f), result]() mutable {
                         if (result < 0)
-                            f(std::error_code { -result, std::system_category() }, tcx::native::invalid_handle);
+                            return f(std::error_code { -result, std::system_category() }, tcx::native::invalid_handle);
                         else {
                             *addr_len = *sock_len;
                             sock_len.reset();
-                            f(std::error_code {}, result);
+                            return f(std::error_code {}, result);
                         }
                     });
                 });
@@ -52,7 +52,7 @@ namespace impl {
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_accept_operation::result_type>
-auto async_accept(E &executor, tcx::ioring_service &service, tcx::native::handle_type fd, sockaddr *addr, std::size_t *addr_len, int flags, F &&f)
+auto async_accept(E &executor, tcx::uring_context auto &service, tcx::native::handle_type fd, sockaddr *addr, std::size_t *addr_len, int flags, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_accept_operation>::call(executor, service, std::forward<F>(f), fd, addr, addr_len, flags);
 }

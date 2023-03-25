@@ -14,7 +14,9 @@ struct detached_t {
     explicit constexpr detached_t() noexcept = default;
 
     template <typename... Args>
-    constexpr void operator()(Args &&...) const noexcept {};
+    constexpr void operator()(Args &&...) const noexcept
+    {
+    }
 };
 
 /**

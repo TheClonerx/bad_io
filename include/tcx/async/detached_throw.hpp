@@ -20,7 +20,7 @@ struct detached_throw_t {
     {
         if (ec)
             throw std::system_error(ec);
-    };
+    }
 };
 
 /**

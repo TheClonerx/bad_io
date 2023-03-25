@@ -12,25 +12,24 @@
 #include <tcx/async/concepts.hpp>
 #include <tcx/async/wrap_op.hpp>
 #include <tcx/native/handle.hpp>
-#include <tcx/services/ioring_service.hpp>
+#include <tcx/services/uring_service.hpp>
 
 namespace tcx {
 namespace impl {
-
     struct ioring_open_operation {
         using result_type = tcx::native::handle_type;
 
         template <typename E, typename F>
-        static void call(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
+        static auto call(E &executor, tcx::uring_context auto &service, char const *path, int flags, mode_t mode, F &&f)
         {
             using variant_type = std::variant<std::error_code, result_type>;
 
-            service.async_open(path, flags, mode, [&executor, f = std::forward<F>(f)](tcx::ioring_service &, std::int32_t result) mutable {
-                executor.post([f = std::move(f), result]() mutable {
+            return service.async_open(path, flags, mode, [&executor, f = std::forward<F>(f)](tcx::uring_context auto &, io_uring_cqe const *result) mutable {
+                return executor.post([f = std::move(f), result = result->res]() mutable {
                     if (result < 0)
-                        f(variant_type(std::in_place_index<0>, -result, std::system_category()));
+                        return f(variant_type(std::in_place_index<0>, -result, std::system_category()));
                     else
-                        f(variant_type(std::in_place_index<1>, result));
+                        return f(variant_type(std::in_place_index<1>, result));
                 });
             });
         }
@@ -42,7 +41,7 @@ namespace impl {
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
-auto async_open(E &executor, tcx::ioring_service &service, char const *path, int flags, mode_t mode, F &&f)
+auto async_open(E &executor, tcx::uring_context auto &service, char const *path, int flags, mode_t mode, F &&f)
 {
     return tcx::impl::wrap_op<tcx::impl::ioring_open_operation>::call(executor, service, std::forward<F>(f), path, flags, mode);
 }
@@ -52,7 +51,7 @@ auto async_open(E &executor, tcx::ioring_service &service, char const *path, int
  */
 template <typename E, typename F>
 requires tcx::completion_handler<F, tcx::impl::ioring_open_operation::result_type>
-auto async_open(E &executor, tcx::ioring_service &service, char const *path, char const *mode, F &&f)
+auto async_open(E &executor, tcx::uring_context auto &service, char const *path, char const *mode, F &&f)
 {
     bool has_plus = false, has_read = false, has_write = false, has_append = false, has_cloexec = false, has_exclusive = false;
     for (auto const *it = mode; *it && *it != ','; ++it) {

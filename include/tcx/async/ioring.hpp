@@ -3,7 +3,7 @@
  * @ingroup ioring_service
  */
 
-#include <tcx/services/ioring_service.hpp>
+#include <tcx/services/uring_service.hpp>
 
 #include <tcx/async/ioring/accept.hpp>
 #include <tcx/async/ioring/close.hpp>
