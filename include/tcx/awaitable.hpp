@@ -34,12 +34,16 @@ protected:
     */
     using state_type = std::variant<std::monostate, stored_type, std::exception_ptr, std::monostate>;
 
-public:
-    [[nodiscard]] [[nodiscard]] auto get_return_object() noexcept
+private:
+    auto coroutine_handle() const noexcept
     {
-        return awaitable<result_type> {
-            std::coroutine_handle<awaitable_promise<result_type>>::from_promise(static_cast<awaitable_promise<result_type> &>(*this))
-        };
+        return std::coroutine_handle<awaitable_promise<result_type>>::from_promise(static_cast<awaitable_promise<result_type> &>(*this));
+    }
+
+public:
+    [[nodiscard]] auto get_return_object() const noexcept
+    {
+        return awaitable<result_type> { coroutine_handle() };
     }
 
     [[nodiscard]] bool is_ready() const noexcept
@@ -56,19 +60,23 @@ public:
         else if (state_index == 1) {
             if constexpr (std::is_void_v<result_type>) {
                 m_state.template emplace<3>();
+                coroutine_handle().destroy();
                 return;
             } else if constexpr (std::is_reference_v<result_type>) {
                 result_type result = *std::get<1>(m_state);
                 m_state.template emplace<3>();
+                coroutine_handle().destroy();
                 return result;
             } else {
                 result_type result = std::move(std::get<1>(m_state));
                 m_state.template emplace<3>();
+                coroutine_handle().destroy();
                 return result;
             }
         } else if (state_index == 2) {
             std::exception_ptr e = std::get<2>(m_state);
             m_state.template emplace<3>();
+            coroutine_handle().destroy();
             std::rethrow_exception(e);
         } else {
             throw std::future_error { std::future_errc::future_already_retrieved };
@@ -80,7 +88,7 @@ public:
         return std::suspend_always {};
     }
 
-    [[nodiscard]] void unhandled_exception() noexcept
+    void unhandled_exception() noexcept
     {
         m_state.template emplace<2>(std::current_exception());
     }
@@ -129,6 +137,7 @@ public:
 private:
     using awaitable_promise_base<T>::m_state;
 };
+
 template <typename Result>
 class awaitable {
 public:
@@ -144,12 +153,14 @@ public:
     constexpr awaitable() noexcept = default;
 
     awaitable(awaitable<Result> const &) = delete;
+
     constexpr awaitable(awaitable<Result> &&other) noexcept
         : m_handle { std::exchange(other.m_handle, nullptr) }
     {
     }
 
     awaitable<Result> &operator=(awaitable<Result> const &) = delete;
+
     constexpr awaitable<Result> &operator=(awaitable<Result> &&other) noexcept
     {
         m_handle = std::exchange(other.m_handle, nullptr);
